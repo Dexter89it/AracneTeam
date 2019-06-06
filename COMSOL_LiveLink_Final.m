@@ -84,12 +84,14 @@ fLimits = str2num(userAnswer{2});
 posLimits.x = str2num(userAnswer{3});
 posLimits.y = str2num(userAnswer{4});
 
-mySetUp.setDim = setDim;
-mySetUp.fLimits = fLimits;
-mySetUp.posLimits = posLimits;
+myInfo.setDim = setDim;
+myInfo.fLimits = fLimits;
+myInfo.posLimits = posLimits;
 
 % Preallocation
 myCollector = struct();
+
+tStart = tic;
 
 for k = 1 : setDim
 
@@ -139,7 +141,9 @@ for k = 1 : setDim
     fprintf('Simulation %d of %d completed.\n\n',k,setDim);
 end
 
-save(['setOf',num2str(setDim),'_',num2str(now),'.mat'],'myCollector','mySetUp');
+myInfo.totalRunTime = toc(tStart);
+
+save(['setOf',num2str(setDim),'_',num2str(now),'.mat'],'myCollector','myInfo');
 
 % 
 % % Some plots
