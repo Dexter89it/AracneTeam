@@ -8,8 +8,8 @@
 % -------------------------------------------------------------------------
 % Author: Cirelli Renato, Ventre Francesco
 % Team: ARACNE
-% Date: 05/06/2019
-% Revision: 3
+% Date: 06/06/2019
+% Revision: 4
 %
 % ChangeLog
 % 31/05/2019 - First Version
@@ -17,6 +17,12 @@
 %              them in matlab.
 %            - Iterative method implemented. It generates a number of
 %              simulation that can be set through the parameter N.
+% 06/06/2019 - The parameters can be set using a GUI
+%            - Default values added
+%            - Timer for the overall database creation and for the single
+%              model run
+%            - The results and the simulation parameters are saved in a
+%              .mat file 
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
@@ -32,34 +38,19 @@ set(0,'DefaultFigureWindowStyle','docked');
 set(0,'DefaultTextFontSize',12);
 set(0,'DefaultAxesFontSize',12);
 
-% Load Library
+% Load Library (here if needed)
 %addpath(genpath('myFunctions'))
 
-%% Figure Preallocation
-figure()
-handler_ax(1) = axes;
-title('Displacement at specified location')
-xlabel('$time \; [s]$')
-ylabel('$Vertical \; Displacement \; [m]$')
-hold on
-
-figure()
-handler_ax(2) = axes;
-title('Velocity at specified location')
-xlabel('$time \; [s]$')
-ylabel('$Vertical \; Velocity \; [m/s]$')
-hold on
-
-figure()
-handler_ax(3) = axes;
-title('Acceleration at specified location')
-xlabel('$time \; [s]$')
-ylabel('$Vertical \; Acceleration \; [m/s^2]$')
-hold on
-
 %% COMSOL LiveLink
-% Import the model
-mphopen('Z:\Users\Dexter\Documents\Comsol Projects\ARACNE\SSSS_Plate_ver1.mph')
+% Load a model
+[file,path] = uigetfile('*.mph');
+if isequal(file,0)
+   disp('Ok, bye.');
+else
+   selModel = fullfile(path,file);
+   disp(['Selected model: ', selModel]);
+   mphopen(selModel);
+end
 
 % Set the dimension of the dataset to be produced
 title = 'Dataset Generator';
@@ -84,15 +75,13 @@ fLimits = str2num(userAnswer{2});
 posLimits.x = str2num(userAnswer{3});
 posLimits.y = str2num(userAnswer{4});
 
-myInfo.setDim = setDim;
-myInfo.fLimits = fLimits;
-myInfo.posLimits = posLimits;
-
 % Preallocation
 myCollector = struct();
 
+% Start a stopwatch timer for the all loop
 tStart = tic;
 
+% Loop untill all simulations are done
 for k = 1 : setDim
 
     % Generate a random load within the given internval
@@ -110,7 +99,7 @@ for k = 1 : setDim
     model.param.set('impact_x',[num2str(posVal(1)),'[m]']);
     model.param.set('impact_y',[num2str(posVal(2)),'[m]']);
     
-    % Save the parameters
+    % Save the parameters (id is unique and equal to the time of run)
     myCollector(k).id = now;
     myCollector(k).Parameters.L_peak.value = fVal;
     myCollector(k).Parameters.L_peak.unit = '[N]';
@@ -123,9 +112,9 @@ for k = 1 : setDim
     % parameters are changed ;) )
     
     fprintf('Simulation has started\n');
-    tic
+    tStart_k = tic;
     model.study('std1').run
-    myCollector(k).runTime = toc;
+    myCollector(k).runTime = toc(tStart);
     fprintf('Simulation has ended in %.1f s \n',myCollector(k).runTime);
 
     % Data Extraction
@@ -141,16 +130,15 @@ for k = 1 : setDim
     fprintf('Simulation %d of %d completed.\n\n',k,setDim);
 end
 
+% Stop the loop timer
 myInfo.totalRunTime = toc(tStart);
 
+fprintf('Database has been created in %d seconds.\n',myInfo.totalRunTime);
+
+% Save some info about the simulation
+myInfo.setDim = setDim;
+myInfo.fLimits = fLimits;
+myInfo.posLimits = posLimits;
+
+% Save a .mat file with a unique name
 save(['setOf',num2str(setDim),'_',num2str(now),'.mat'],'myCollector','myInfo');
-
-% 
-% % Some plots
-% %figure ('name',name)
-% plot(handler_ax(1),timeEval',nodalDisp')
-% %figure ('name',name,'2')
-% plot(handler_ax(2),timeEval',nodalVel')
-% %figure ('name',name,'2')
-% plot(handler_ax(3),timeEval',nodalAcc')
-
