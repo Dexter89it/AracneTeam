@@ -22,7 +22,8 @@
 %            - Timer for the overall database creation and for the single
 %              model run
 %            - The results and the simulation parameters are saved in a
-%              .mat file 
+%              .mat file
+%            - Added a GUI interface
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
@@ -45,7 +46,9 @@ set(0,'DefaultAxesFontSize',12);
 % Load a model
 [file,path] = uigetfile('*.mph');
 if isequal(file,0)
-   disp('Ok, bye.');
+    close all
+    clc
+    return
 else
    selModel = fullfile(path,file);
    disp(['Selected model: ', selModel]);
@@ -111,21 +114,27 @@ for k = 1 : setDim
     % present in the .mph file and the re-run is not necessary (unless
     % parameters are changed ;) )
     
+    % Update Geometry
+    model.geom('geom1').runAll()
+    % Update the mesh
+    model.mesh('mesh1').run()
+    
     fprintf('Simulation has started\n');
     tStart_k = tic;
     model.study('std1').run
     myCollector(k).runTime = toc(tStart);
     fprintf('Simulation has ended in %.1f s \n',myCollector(k).runTime);
 
-    % Data Extraction
+    % Data Extraction from specific Selection
+    temp = 'geom1_sel1';
     % Time series for each node (node_id,value)
-    myCollector(k).timeEval = mphevalpoint(model,'t');
+    myCollector(k).timeEval = mphevalpoint(model,'t','selection',temp);
     % Acceleration of each node (node_id,value)
-    myCollector(k).nodalAcc = mphevalpoint(model,'shell.u_ttZ');
+    myCollector(k).nodalAcc = mphevalpoint(model,'shell.u_ttZ','selection',temp);
     % Velocity of each node (node_id,value) 
-    myCollector(k).nodalVel = mphevalpoint(model,'shell.u_tZ');
+    myCollector(k).nodalVel = mphevalpoint(model,'shell.u_tZ','selection',temp);
     % Displacement of each node (node_id,value)
-    myCollector(k).nodalDisp = mphevalpoint(model,'shell.umz');
+    myCollector(k).nodalDisp = mphevalpoint(model,'shell.umz','selection',temp);
     
     fprintf('Simulation %d of %d completed.\n\n',k,setDim);
 end
@@ -139,6 +148,7 @@ fprintf('Database has been created in %d seconds.\n',myInfo.totalRunTime);
 myInfo.setDim = setDim;
 myInfo.fLimits = fLimits;
 myInfo.posLimits = posLimits;
+myInfo.creationTime = now;
 
 % Save a .mat file with a unique name
-save(['setOf',num2str(setDim),'_',num2str(now),'.mat'],'myCollector','myInfo');
+save(['setOf',num2str(setDim),'_',num2str(myInfo.creationTime),'.mat'],'myCollector','myInfo');

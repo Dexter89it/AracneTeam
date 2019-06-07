@@ -11,6 +11,11 @@
 *.tar
 *.zip
 
+# Autosave #
+############
+*.asv
+*.autosave
+
 # Logs and databases #
 ######################
 *.log
