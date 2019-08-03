@@ -104,9 +104,9 @@ end
 
 % Answer Map
 setDim = str2double(userAnswer{1});
-fLimits = str2num(userAnswer{2});
-posLimits.x = str2num(userAnswer{3});
-posLimits.y = str2num(userAnswer{4});
+fLimits = str2doubble(userAnswer{2});
+posLimits.x = str2doubble(userAnswer{3});
+posLimits.y = str2doubble(userAnswer{4});
 
 mySetUp.setDim = setDim;
 mySetUp.fLimits = fLimits;
