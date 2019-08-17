@@ -1,4 +1,3 @@
-
 % This script shows the collected data
 % 
 % NOTE

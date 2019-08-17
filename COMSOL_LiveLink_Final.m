@@ -1,4 +1,3 @@
-
 % This script loads a COMSOL model through LiveLink server, it sets some
 % parameter and runs the simulation.
 % 
@@ -8,8 +7,8 @@
 % -------------------------------------------------------------------------
 % Author: Cirelli Renato, Ventre Francesco
 % Team: ARACNE
-% Date: 16/08/2019
-% Revision: 7
+% Date: 17/08/2019
+% Revision: 8
 %
 % ChangeLog
 % 31/05/2019 - First Version
@@ -26,6 +25,7 @@
 %              collection.
 % 16/08/2019 - The nodal point selection is now giving all the nodal point
 %              using mpheval function
+% 17/08/2019 - Added a pause after a simulation
 %
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
