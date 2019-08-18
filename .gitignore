@@ -24,4 +24,5 @@
 
 # Custom File Exclusion #
 #########################
+*.mph
 *.mat
