@@ -166,18 +166,18 @@ inputX(2:4:4*sensCount,:) = sensPosY;
 inputX(3:4:4*sensCount,:) = charTime;
 inputX(4:4:4*sensCount,:) = charVal;
 
-% Neural Input Vector Builder #2
-% [...,sPosX_i,sPosY_i,charTime_i,...]'
-inputX(1:3:4*sensCount,:) = sensPosX;
-inputX(2:3:4*sensCount,:) = sensPosY;
-inputX(3:3:4*sensCount,:) = charTime;
-
-% Neural Input Vector Builder #3
-% [...,charTime_i,charVal_i,...]'
-inputX(1:2:2*sensCount,:) = charTime;
-inputX(2:2:2*sensCount,:) = charVal;
-
-% Neural Input Vector Builder #4
-% [...,charTime_i,...]'
-inputX(1:2:2*sensCount,:) = charTime;
-inputX(2:2:2*sensCount,:) = charVal;
+% % Neural Input Vector Builder #2
+% % [...,sPosX_i,sPosY_i,charTime_i,...]'
+% inputX(1:3:4*sensCount,:) = sensPosX;
+% inputX(2:3:4*sensCount,:) = sensPosY;
+% inputX(3:3:4*sensCount,:) = charTime;
+% 
+% % Neural Input Vector Builder #3
+% % [...,charTime_i,charVal_i,...]'
+% inputX(1:2:2*sensCount,:) = charTime;
+% inputX(2:2:2*sensCount,:) = charVal;
+% 
+% % Neural Input Vector Builder #4
+% % [...,charTime_i,...]'
+% inputX(1:2:2*sensCount,:) = charTime;
+% inputX(2:2:2*sensCount,:) = charVal;
