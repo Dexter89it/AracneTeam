@@ -351,6 +351,4 @@ for k = 1 : setDim
     % Clean some stuff
     clear('myCollector')
     
-    pause(30);
-    
 end
