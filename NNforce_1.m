@@ -1,11 +1,11 @@
 %
-% FNN for position estimation #1
+% FNN for force estimation #1
 % 
 % NOTE
 % The model is created in COMSOL GUI and importated here as it is. This
 % reduced the ammount of code needed to properly set-up and run a model.
 % -------------------------------------------------------------------------
-% Author: Cirelli Renato, Francesco Ventre
+% Author: Cirelli Renato, Francesco Ventre, Salvatore Andrea Bella
 % Team: ARACNE
 % Date: 23/08/2019
 % Revision: 1
@@ -22,7 +22,7 @@
 clc
 
 % Number of NN to train
-nnCount = 2;
+nnCount = 3;
 % Number of training session per each NN
 keepTraining = 1;
 
@@ -42,7 +42,7 @@ for k = 1:nnCount
     tic
     %Set the training function
 %     % Levenberg-Marquardt
-     trainFcn = 'trainlm';
+      trainFcn = 'trainlm';
 %     % BFGS Quasi-Newton
 %     trainFcn = 'trainbfg';
 %     % Resilient Backpropagation
@@ -62,7 +62,7 @@ for k = 1:nnCount
     
     % Neural network definition
     net = feedforwardnet([25],trainFcn); % [best with 25 neurons in ne layer]
-    %net = cascadeforwardnet([25],trainFcn);
+    %net = cascadeforwardnet([25 10 5],trainFcn);
     
     % Set the performance function
 %     % Mean absolute error 
@@ -72,7 +72,7 @@ for k = 1:nnCount
 %     % Sum absolute error
 %     net.performFcn = 'sae';
 %     % Sum squared error
-     net.performFcn = 'sse';
+      net.performFcn = 'sse';
 %     % Cross-entropy
 %     net.performFcn = 'crossentropy';
 %     % Mean squared
@@ -87,7 +87,7 @@ for k = 1:nnCount
     %net.trainParam.mu = 5;
     
     % Maximum training fail limit
-    net.trainParam.max_fail = 100;
+    net.trainParam.max_fail = 50;
     
     fprintf('NN : %d\n',k);
     netCollInt = {};
@@ -107,7 +107,7 @@ for k = 1:nnCount
     errorColl{k} = e;
     
     % Check if the NN is the best one according to a criteria
-    pMerit = abs(max(max(e)));
+    pMerit = abs(max(e));
     if pMeritMem > pMerit
         
         pMeritMem = pMerit;
@@ -136,19 +136,15 @@ plotregression(outputY,predictedY,['Regression for best NN  with ID ',num2str(be
 figure()
 cla
 temp = (predictedY - outputY); 
-subplot(1,2,1)
-histogram(temp(1,:),100);
-title('X Error')
-subplot(1,2,2)
-histogram(temp(2,:),100);
-title('Y Error')
+histogram(temp,100);
+title('Force Prediction Error')
 
 figure()
 cla
 hold on
-plot(outputY(1,:),outputY(2,:),'bO','DisplayName','Data')
-plot(predictedY(1,:),predictedY(2,:),'rx','DisplayName','Prediction')
+plot(1:collDim,outputY,'b-.','DisplayName','Data')
+plot(1:collDim,predictedY,'r-x','DisplayName','Prediction')
 legend
-title('Position Prediction')
+title('Force Prediction')
 
 fprintf('The best is NN %d\n',best.idk)

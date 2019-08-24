@@ -1,20 +1,17 @@
 %
-% NN Data pre-processor for the position prediction
+% NN Data pre-processor for the force prediction
 % 
 % NOTE
 % The model is created in COMSOL GUI and importated here as it is. This
 % reduced the ammount of code needed to properly set-up and run a model.
 % -------------------------------------------------------------------------
-% Author: Cirelli Renato
+% Author: Cirelli Renato, Francesco Ventre, Aloisia Russo
 % Team: ARACNE
 % Date: 23/08/2019
-% Revision: 3
+% Revision: 1
 %
 % ChangeLog
-% 16/08/2019 - First Version
-% 22/08/2019 - Second Version
-% 23/08/2019 - Fixed the characteristic time value for the reference
-%              sensor, corrected the outputX vector preallocations.
+% 23/08/2019 - First Version
 %
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
@@ -59,8 +56,11 @@ end
 
 % Preallocation
 charTime = zeros(sensCount,collDim);
-charVal = zeros(sensCount,collDim);
+charVal1 = zeros(sensCount,collDim);
+charVal2 = zeros(sensCount,collDim);
+charVal3 = zeros(sensCount,collDim);
 charIndex = zeros(sensCount,collDim);
+
 
 forceL = zeros(1,collDim);
 forcePosX = zeros(1,collDim);
@@ -85,13 +85,18 @@ for j = 1:collDim
     simTime = filesColl(j).myCollector.timeEval;
     refData = filesColl(j).myCollector.data.disp.z(sensSelIdx,:);
    
-    % Find the minimum value for the displacement among the sensors
-    [tempResp,tempIdx] = max(abs(refData),[],2);
-    [~,tempRef] = min(tempResp);
+    % Find the settling time reference point
+    [tempResp,~] = max(abs(refData),[],2);
+    
+    tempTrs = 0.02.*tempResp;
+    
+    [minTrs,tempRef] = min(tempTrs);
+    
+    tempIdx = find(abs(refData(tempRef,:))>=minTrs);
     
     % Save the reference sensor and reference time on that sensor 
     refSensor = tempRef;
-    refTimeIdx = tempIdx(tempRef);
+    refTimeIdx =tempIdx(end);
     
     if showPlots
         plot(handlerAx_1,simTime,refData');
@@ -104,7 +109,9 @@ for j = 1:collDim
         % If the k-th sensor is the reference sensor, do not compute things
         % again. Use the reference one.
         if k == refSensor
-            charVal(k,j) = refData(k,refTimeIdx);
+            charVal1(k,j) = refData(k,refTimeIdx);
+            charVal2(k,j) = max(abs(refData(k,:)));
+            charVal3(k,j) = trapz(simTime(1:refTimeIdx),(refData(k,1:refTimeIdx)));
             charTime(k,j) = simTime(refTimeIdx);
             sensPosX(k,j) = filesColl(j).myCollector.mesh.x(k,1);
             sensPosY(k,j) = filesColl(j).myCollector.mesh.y(k,1);
@@ -118,12 +125,15 @@ for j = 1:collDim
         
         % Find the charactertistic data for the time response of the k-th
         % sensor
-        charTimeIdx = find(abs(interpEval)>=abs(refData(refSensor,refTimeIdx)),1);
-        charVal(k,j) = interpEval(charTimeIdx);
+        charTimeIdx = find(abs(interpEval)>=abs(refData(refSensor,refTimeIdx)));
+        charTimeIdx = charTimeIdx(end);
         charTime(k,j) = interpTime(charTimeIdx);
+        charVal1(k,j) = interpEval(charTimeIdx);
+        charVal2(k,j) = max(abs(refData(k,:)));
+        charVal3(k,j) = trapz(interpTime(1:charTimeIdx),(interpEval(1:charTimeIdx)));
         
         if showPlots
-            plot(charTime(k,j),charVal(k,j),'r.')
+            plot(charTime(k,j),charVal1(k,j),'r.')
         end
         
         sensPosX(k,j) = filesColl(j).myCollector.mesh.x(k,1);
@@ -156,31 +166,32 @@ for j = 1:collDim
 end
 
 % Build the NN Output Vector
-outputY = [forcePosX;forcePosY];
+outputY = forceL;
 
 % Build the NN Input Vector
 
-% Neural Input Vector Builder #1
-% [...,sPosX_i,sPosY_i,charTime_i,charVal_i,...]'
-inputX = zeros(4*sensCount,collDim);
-inputX(1:4:4*sensCount,:) = sensPosX;
-inputX(2:4:4*sensCount,:) = sensPosY;
-inputX(3:4:4*sensCount,:) = charTime;
-inputX(4:4:4*sensCount,:) = charVal;
+% % Neural Input Vector Builder #1
+% % [...,sPosX_i,sPosY_i,charTime_i,charVal_i,...]'
+%  inputX = zeros(4*sensCount,collDim);
+%  inputX(1:4:4*sensCount,:) = sensPosX;
+%  inputX(2:4:4*sensCount,:) = sensPosY;
+%  inputX(3:4:4*sensCount,:) = charTime;
+%  inputX(4:4:4*sensCount,:) = charVal3;
 
 % % Neural Input Vector Builder #2
 % % [...,sPosX_i,sPosY_i,charTime_i,...]'
-% inputX = zeros(3*sensCount,collDim);
-% inputX(1:3:3*sensCount,:) = sensPosX;
-% inputX(2:3:3*sensCount,:) = sensPosY;
-% inputX(3:3:3*sensCount,:) = charTime;
-% 
-% % Neural Input Vector Builder #3
-% % [...,charTime_i,charVal_i,...]'
+inputX = zeros(3*sensCount,collDim);
+inputX(1:3:3*sensCount,:) = charVal3;
+inputX(2:3:3*sensCount,:) = charVal2;
+inputX(3:3:3*sensCount,:) = charTime;
+
+% Neural Input Vector Builder #3
+% [...,charTime_i,charVal_i,...]'
 % inputX = zeros(2*sensCount,collDim);
 % inputX(1:2:2*sensCount,:) = charTime;
-% inputX(2:2:2*sensCount,:) = charVal;
-% 
+% inputX(2:2:2*sensCount,:) = charVal3;
+
 % Neural Input Vector Builder #4
 % [...,charTime_i,...]'
-% inputX = charTime;
+% inputX = zeros(sensCount,collDim);
+% inputX = charVal3;
