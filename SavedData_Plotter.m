@@ -7,7 +7,7 @@
 % Author: Cirelli Renato, Ventre Francesco
 % Team: ARACNE
 % Date: 16/08/2019
-% Revision: 7
+% Revision: 8
 %
 % ChangeLog
 % 31/05/2019 - First Version
@@ -48,7 +48,7 @@ ylabel('$y \; [m]$');
 zlabel('$z \; [m]$');
 hold on
 plot3(myCollector.mesh.x(:,1),myCollector.mesh.y(:,1),myCollector.mesh.z(:,1),'O');
-plot3(myCollector.Parameters.impact.value(1),myCollector.Parameters.impact.value(2),0,'rx');
+plot3(myCollector.Parameters.impact(1),myCollector.Parameters.impact(2),0,'rx');
 
 %%
 myList = fieldnames(myCollector.data);
