@@ -317,12 +317,12 @@ for k = 1 : setDim
     % Save the results
     save([resFolder,'\',simName,'\',simName,'_',num2str(k),'.mat'],'myCollector','mySetUp');
     
-    % Clean some stuff
-    clear('myCollector')
-    
     % Memorize the total run time
     shootTime(k) = myCollector.runTime + myCollector.saveTime;
     
+    % Clean some stuff
+    clear('myCollector')
+
     % Time left
     timeLeft = mean(shootTime(shootTime>0))*(setDim - k);
     fprintf('Time left: %.1f [s] | %.1f [m] | %.1f [h]\n\n',timeLeft,timeLeft/60,timeLeft/3600);
