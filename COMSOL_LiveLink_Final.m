@@ -5,10 +5,11 @@
 % The model is created in COMSOL GUI and importated here as it is. This
 % reduced the ammount of code needed to properly set-up and run a model.
 % -------------------------------------------------------------------------
-% Author: Cirelli Renato, Ventre Francesco
+% Author: Cirelli Renato, Ventre Francesco, Salvatore Bella, Alvaro Romero
+%         Calvo, Aloisia Russo.
 % Team: ARACNE
-% Date: 17/08/2019
-% Revision: 8
+% Date: 21/09/2019
+% Revision: 9
 %
 % ChangeLog
 % 31/05/2019 - First Version
@@ -26,6 +27,7 @@
 % 16/08/2019 - The nodal point selection is now giving all the nodal point
 %              using mpheval function
 % 17/08/2019 - Added a pause after a simulation
+% 21/09/2019 - Integration with Alvaro's code, saved data from second study
 %
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
@@ -44,6 +46,7 @@ set(0,'DefaultAxesFontSize',12);
 
 % Load Library
 addpath(genpath('myFunctions'))
+addpath(genpath('MASTER'));
 
 %% COMSOL LiveLink
 % Load a model
@@ -64,10 +67,9 @@ fprintf('\n');
 title = 'Dataset Generator';
 dims = [1 45];
 prompt = {'Enter the dimension of the dataset (Integer):',...
-          'Enter the magnitude interval [N]:',...
           'Enter the impact location limits on x [m]:',...
           'Enter the impact location limits on y [m]:'};
-definput = {'20','[0.7,774]','[0.01,0.49]','[0.01,0.49]'};
+definput = {'20','[0.01,0.49]','[0.01,0.49]'};
 userAnswer = inputdlg(prompt,title,dims,definput);
 
 % End the script if no choice is made
@@ -110,14 +112,14 @@ end
 
 % Answer Map
 setDim = str2double(userAnswer{1});
-fLimits = str2num(userAnswer{2});
-posLimits.x = str2num(userAnswer{3});
-posLimits.y = str2num(userAnswer{4});
+posLimits.x = str2num(userAnswer{2});
+posLimits.y = str2num(userAnswer{3});
 
+
+% Simulation info
 mySetUp.setDim = setDim;
-mySetUp.fLimits = fLimits;
 mySetUp.posLimits = posLimits;
-
+mySetUp.dataToSave = dataToSave;
 
 % Create a folder where to store results with the name equal to date
 resFolder = date;
@@ -139,45 +141,47 @@ mkdir([resFolder,'\',simName]);
 mySetUp.simDate = resFolder;
 mySetUp.simName = simName;
 
+% Data Generation
+[dt,P,d,up2,v,G] = impact_generator('./MASTER/total_flux.txt',setDim);
+
+% Preallocation
+shootTime = zeros(1,setDim);
+
 % Start to dance ;)
 for k = 1 : setDim
-
+    
+    tic
+    
     % Preallocation
     myCollector = struct();
     
-    % Mesh Setup
-    myCollector.mesh.hauto = model.mesh('mesh1').feature('size').getDouble('hauto');
-    % Study Setup
-    myCollector.study.t0 = str2double(model.study('std1').feature('time').getString('tlist_vector_start'));
-    myCollector.study.step = str2double(model.study('std1').feature('time').getString('tlist_vector_step'));
-    myCollector.study.tf = str2double(model.study('std1').feature('time').getString('tlist_vector_stop'));
+    % Save the index
+    myCollector.ID = k; 
     
-    % Generate a random load within the given internval
-    % NOTE: Set a maximum and/or a minimum here...
-    fVal = fLimits(1) + (fLimits(2)-fLimits(1)).*rand();
-
     % Generate a random position within the given intervals
     posVal = [posLimits.x(1);posLimits.y(1)] + ...
              [posLimits.x(2)-posLimits.x(1),0;...
               0,posLimits.y(2)-posLimits.y(1)]*rand(2,1);
 
+    % Save generated parameters
+    myCollector.Parameters.dt = dt(k);
+    myCollector.Parameters.P = P(k);
+    myCollector.Parameters.d = d(k);
+    myCollector.Parameters.up2 = up2(k);
+    myCollector.Parameters.v = v(k);
+    myCollector.Parameters.G = G(k);
+    myCollector.Parameters.impact = posVal;
+          
     % Update the model with the current parameters
     % Peak of the force
-    model.param.set('L_peak',[num2str(fVal),'[N]']);
+    model.param.set('P_imp',[num2str(P(k)),'[N]']);
+    % Square impulse time
+    model.param.set('dt_imp',[num2str(dt(k)),'[s]']);
     % Location of the applied force
     model.param.set('impact_x',[num2str(posVal(1)),'[m]']);
     model.param.set('impact_y',[num2str(posVal(2)),'[m]']);
-    
-    % Save the parameters
-    myCollector.Parameters.L_peak.value = fVal;
-    myCollector.Parameters.L_peak.unit = '[N]';
-    myCollector.Parameters.impact.value = posVal;
-    myCollector.Parameters.impact.unit = '[m]';
-
-    % Run the model
-    % Note: If the model has been already solved in COMSOL, a solution is
-    % present in the .mph file and the re-run is not necessary (unless
-    % parameters are changed ;) )
+    % Impact diameter
+    model.param.set('d_imp',[num2str(d(k)),'[m]']);
     
     % Update Geometry
     model.geom('geom1').runAll();
@@ -189,10 +193,13 @@ for k = 1 : setDim
     fprintf('Simulation has started\n');
     tic
     model.study('std1').run
+    fprintf('Study 1 is complete\n');
+    model.study('std2').run
+    fprintf('Study 2 is complete\n');
     myCollector.runTime = toc;
     fprintf('Simulation has ended in %.1f s \n\n',myCollector.runTime);
-
-    myCollector.savedDataType = dataToSave;
+    
+    selDataset = 'dset2';
     
     % Data Extraction
     switch dataToSave
@@ -202,84 +209,63 @@ for k = 1 : setDim
             tic
             
             % Time series for each node (node_id,value)
-            temp = mpheval(model,'t','edim','boundary');
+            temp = mpheval(model,'t','edim','boundary','dataset',selDataset);
             myCollector.timeEval = temp.d1';
             myCollector.timeEval = myCollector.timeEval(1,:);
             
             % Evaluation Point Coordinates
             fprintf(' -- Saving evaluation points coordinates \n');
             
-            temp = mpheval(model,'x','edim','boundary');
+            temp = mpheval(model,'x','edim','boundary','dataset',selDataset);
             myCollector.mesh.x = temp.d1';
             
-            temp = mpheval(model,'y','edim','boundary');
+            temp = mpheval(model,'y','edim','boundary','dataset',selDataset);
             myCollector.mesh.y = temp.d1';
             
-            temp = mpheval(model,'z','edim','boundary');
+            temp = mpheval(model,'z','edim','boundary','dataset',selDataset);
             myCollector.mesh.z = temp.d1';
             
             % Acceleration of each node (node_id,value)
             fprintf(' -- Saving acceleration data \n');
             
-            temp = mpheval(model,'shell.u_ttX','edim','boundary');
+            temp = mpheval(model,'shell.u_ttX','edim','boundary','dataset',selDataset);
             myCollector.data.acc.x = temp.d1';
             
-            temp = mpheval(model,'shell.u_ttY','edim','boundary');
+            temp = mpheval(model,'shell.u_ttY','edim','boundary','dataset',selDataset);
             myCollector.data.acc.y = temp.d1';
             
-            temp = mpheval(model,'shell.u_ttZ','edim','boundary');
+            temp = mpheval(model,'shell.u_ttZ','edim','boundary','dataset',selDataset);
             myCollector.data.acc.z = temp.d1';
             
             % Velocity of each node (node_id,value)
             fprintf(' -- Saving velocity data \n'); 
             
-            temp = mpheval(model,'shell.u_tX','edim','boundary');
+            temp = mpheval(model,'shell.u_tX','edim','boundary','dataset',selDataset);
             myCollector.data.vel.x = temp.d1';
             
-            temp = mpheval(model,'shell.u_tY','edim','boundary');
+            temp = mpheval(model,'shell.u_tY','edim','boundary','dataset',selDataset);
             myCollector.data.vel.y = temp.d1';
             
-            temp = mpheval(model,'shell.u_tZ','edim','boundary');
+            temp = mpheval(model,'shell.u_tZ','edim','boundary','dataset',selDataset);
             myCollector.data.vel.z = temp.d1';
 
             % Displacement of each node (node_id,value)
             fprintf(' -- Saving displacement data \n');
             
-            temp = mpheval(model,'shell.umx','edim','boundary');
+            temp = mpheval(model,'shell.umx','edim','boundary','dataset',selDataset);
             myCollector.data.disp.x = temp.d1';
             
-            temp = mpheval(model,'shell.umy','edim','boundary');
+            temp = mpheval(model,'shell.umy','edim','boundary','dataset',selDataset);
             myCollector.data.disp.y = temp.d1';
             
-            temp = mpheval(model,'shell.umz','edim','boundary');
+            temp = mpheval(model,'shell.umz','edim','boundary','dataset',selDataset);
             myCollector.data.disp.z = temp.d1';
 
             % Energy Densities of each node (node_id,value) [J/m^3]
             fprintf(' -- Saving energy densities data \n');
             
-            temp = mpheval(model,'shell.Wk','edim','boundary');
+            temp = mpheval(model,'shell.Wk','edim','boundary','dataset',selDataset);
             myCollector.data.Wk = temp.d1';
-            
-% %             temp = mpheval(model,'shell.Ws','edim','boundary');
-% %             myCollector.data.Ws = temp.d1';
-
-            
-% % !! !! !! USE temp = mpheval(model,'x','edim','boundary') HERE AS WELL!!
-% %             % Strain Energies of each node (node_id,value) [J/m^2]
-% %             fprintf(' -- Saving strain energies data \n');
-% %             myCollector.data.WsB = mpheval(model,'shell.WsB');
-% %             myCollector.data.WsS = mpheval(model,'shell.WsS');
-% %             myCollector.data.WsM = mpheval(model,'shell.WsM');
-
-% %             % Shear Stresses Evaluation of each node (node_id,value)
-% %             fprintf(' -- Saving shear stresses data \n');
-% %             myCollector.data.mises.tot = mpheval(model,'shell.mises');
-% %             myCollector.data.mises.b = mpheval(model,'shell.mises_b');
-% %             myCollector.data.mises.m = mpheval(model,'shell.mises_m');
-% %             myCollector.data.tresca = mpheval(model,'shell.tresca');
-% %             myCollector.data.sp.spl = mpheval(model,'shell.sp1');
-% %             myCollector.data.sp.sp2 = mpheval(model,'shell.sp2');
-% %             myCollector.data.sp.sp3 = mpheval(model,'shell.sp3');
 
             myCollector.saveTime = toc;
             fprintf('Data has been saved in %.1f s \n',myCollector.saveTime); 
@@ -290,53 +276,36 @@ for k = 1 : setDim
             
             tic
             % Time series for each node (node_id,value)
-            myCollector.timeEval = mphevalpoint(model,'t','selection',tempSel);
+            myCollector.timeEval = mphevalpoint(model,'t','selection',tempSel,'dataset',selDataset);
             myCollector.timeEval = myCollector.timeEval(1,:);
 
             % Evaluation Point Coordinates
             fprintf(' -- Saving evaluation points coordinates \n'); 
-            myCollector.mesh.x = mphevalpoint(model,'x','selection',tempSel);
-            myCollector.mesh.y = mphevalpoint(model,'y','selection',tempSel);
-            myCollector.mesh.z = mphevalpoint(model,'z','selection',tempSel);
+            myCollector.mesh.x = mphevalpoint(model,'x','selection',tempSel,'dataset',selDataset);
+            myCollector.mesh.y = mphevalpoint(model,'y','selection',tempSel,'dataset',selDataset);
+            myCollector.mesh.z = mphevalpoint(model,'z','selection',tempSel,'dataset',selDataset);
             
             % Acceleration of each node (node_id,value)
             fprintf(' -- Saving acceleration data \n'); 
-            myCollector.data.acc.x = mphevalpoint(model,'shell.u_ttX','selection',tempSel);
-            myCollector.data.acc.y = mphevalpoint(model,'shell.u_ttY','selection',tempSel);
-            myCollector.data.acc.z = mphevalpoint(model,'shell.u_ttZ','selection',tempSel);
+            myCollector.data.acc.x = mphevalpoint(model,'shell.u_ttX','selection',tempSel,'dataset',selDataset);
+            myCollector.data.acc.y = mphevalpoint(model,'shell.u_ttY','selection',tempSel,'dataset',selDataset);
+            myCollector.data.acc.z = mphevalpoint(model,'shell.u_ttZ','selection',tempSel,'dataset',selDataset);
 
             % Velocity of each node (node_id,value)
             fprintf(' -- Saving velocity data \n'); 
-            myCollector.data.vel.x = mphevalpoint(model,'shell.u_tX','selection',tempSel);
-            myCollector.data.vel.y = mphevalpoint(model,'shell.u_tY','selection',tempSel);
-            myCollector.data.vel.z = mphevalpoint(model,'shell.u_tZ','selection',tempSel);
+            myCollector.data.vel.x = mphevalpoint(model,'shell.u_tX','selection',tempSel,'dataset',selDataset);
+            myCollector.data.vel.y = mphevalpoint(model,'shell.u_tY','selection',tempSel,'dataset',selDataset);
+            myCollector.data.vel.z = mphevalpoint(model,'shell.u_tZ','selection',tempSel,'dataset',selDataset);
 
             % Displacement of each node (node_id,value)
             fprintf(' -- Saving displacement data \n');
-            myCollector.data.disp.x = mphevalpoint(model,'shell.umx','selection',tempSel);
-            myCollector.data.disp.y = mphevalpoint(model,'shell.umy','selection',tempSel);
-            myCollector.data.disp.z = mphevalpoint(model,'shell.umz','selection',tempSel);
+            myCollector.data.disp.x = mphevalpoint(model,'shell.umx','selection',tempSel,'dataset',selDataset);
+            myCollector.data.disp.y = mphevalpoint(model,'shell.umy','selection',tempSel,'dataset',selDataset);
+            myCollector.data.disp.z = mphevalpoint(model,'shell.umz','selection',tempSel,'dataset',selDataset);
 
             % Energy Densities of each node (node_id,value) [J/m^3]
             fprintf(' -- Saving energy densities data \n');
-            myCollector.data.Wk = mphevalpoint(model,'shell.Wk','selection',tempSel);
-% %             myCollector.data.Ws = mphevalpoint(model,'shell.Ws','selection',tempSel);
-
-% %             % Strain Energies of each node (node_id,value) [J/m^2]
-% %             fprintf(' -- Saving strain energies data \n');
-% %             myCollector.data.WsB = mphevalpoint(model,'shell.WsB','selection',tempSel);
-% %             myCollector.data.WsS = mphevalpoint(model,'shell.WsS','selection',tempSel);
-% %             myCollector.data.WsM = mphevalpoint(model,'shell.WsM','selection',tempSel);
-
-% %             % Shear Stresses Evaluation of each node (node_id,value)
-% %             fprintf(' -- Saving shear stresses data \n');
-% %             myCollector.data.mises.tot = mphevalpoint(model,'shell.mises','selection',tempSel);
-% %             myCollector.data.mises.b = mphevalpoint(model,'shell.mises_b','selection',tempSel);
-% %             myCollector.data.mises.m = mphevalpoint(model,'shell.mises_m','selection',tempSel);
-% %             myCollector.data.tresca = mphevalpoint(model,'shell.tresca','selection',tempSel);
-% %             myCollector.data.sp.sp1 = mphevalpoint(model,'shell.sp1','selection',tempSel);
-% %             myCollector.data.sp.sp2 = mphevalpoint(model,'shell.sp2','selection',tempSel);
-% %             myCollector.data.sp.sp3 = mphevalpoint(model,'shell.sp3','selection',tempSel);
+            myCollector.data.Wk = mphevalpoint(model,'shell.Wk','selection',tempSel,'dataset',selDataset);
 
             myCollector.saveTime = toc;
             fprintf('Data has been saved in %.1f s \n',myCollector.saveTime); 
@@ -350,5 +319,12 @@ for k = 1 : setDim
     
     % Clean some stuff
     clear('myCollector')
+    
+    % Memorize the total run time
+    shootTime(k) = myCollector.runTime + myCollector.saveTime;
+    
+    % Time left
+    timeLeft = mean(shootTime(shootTime>0))*(setDim - k);
+    fprintf('Time left: %.1f [s] | %.1f [m] | %.1f [h]\n\n',timeLeft,timeLeft/60,timeLeft/3600);
     
 end
