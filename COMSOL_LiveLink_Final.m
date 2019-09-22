@@ -9,7 +9,7 @@
 %         Calvo, Aloisia Russo.
 % Team: ARACNE
 % Date: 21/09/2019
-% Revision: 9
+% Revision: 9.1
 %
 % ChangeLog
 % 31/05/2019 - First Version
@@ -66,10 +66,11 @@ fprintf('\n');
 % Set the dimension of the dataset to be produced
 title = 'Dataset Generator';
 dims = [1 45];
-prompt = {'Enter the dimension of the dataset (Integer):',...
+prompt = {'User Name',...
+          'Enter the dimension of the dataset (Integer):',...
           'Enter the impact location limits on x [m]:',...
           'Enter the impact location limits on y [m]:'};
-definput = {'20','[0.01,0.49]','[0.01,0.49]'};
+definput = {'Insert here your name','20','[0.01,0.99]','[0.01,0.99]'};
 userAnswer = inputdlg(prompt,title,dims,definput);
 
 % End the script if no choice is made
@@ -111,12 +112,14 @@ switch dataToSave
 end
 
 % Answer Map
-setDim = str2double(userAnswer{1});
-posLimits.x = str2num(userAnswer{2});
-posLimits.y = str2num(userAnswer{3});
+userName = userAnswer{1};
+setDim = str2double(userAnswer{2});
+posLimits.x = str2num(userAnswer{3});
+posLimits.y = str2num(userAnswer{4});
 
 
 % Simulation info
+mySetUp.userName = userName;
 mySetUp.setDim = setDim;
 mySetUp.posLimits = posLimits;
 mySetUp.dataToSave = dataToSave;
@@ -155,7 +158,7 @@ for k = 1 : setDim
     % Preallocation
     myCollector = struct();
     
-    % Save the index
+    % Info to store
     myCollector.ID = k; 
     
     % Generate a random position within the given intervals
@@ -163,7 +166,7 @@ for k = 1 : setDim
              [posLimits.x(2)-posLimits.x(1),0;...
               0,posLimits.y(2)-posLimits.y(1)]*rand(2,1);
 
-    % Save generated parameters
+    % Parameters to store
     myCollector.Parameters.dt = dt(k);
     myCollector.Parameters.P = P(k);
     myCollector.Parameters.d = d(k);
@@ -174,7 +177,7 @@ for k = 1 : setDim
           
     % Update the model with the current parameters
     % Peak of the force
-    model.param.set('P_imp',[num2str(P(k)),'[N]']);
+    model.param.set('P_imp',[num2str(P(k)),'[Pa]']);
     % Square impulse time
     model.param.set('dt_imp',[num2str(dt(k)),'[s]']);
     % Location of the applied force
@@ -199,6 +202,7 @@ for k = 1 : setDim
     myCollector.runTime = toc;
     fprintf('Simulation has ended in %.1f s \n\n',myCollector.runTime);
     
+    % Select the dataset to be used during the data extraction from COMSOL
     selDataset = 'dset2';
     
     % Data Extraction
@@ -325,6 +329,6 @@ for k = 1 : setDim
 
     % Time left
     timeLeft = mean(shootTime(shootTime>0))*(setDim - k);
-    fprintf('Time left: %.1f [s] | %.1f [m] | %.1f [h]\n\n',timeLeft,timeLeft/60,timeLeft/3600);
+    fprintf('The dataset will be ready in: %.1f [s] = %.1f [m] = %.1f [h]\n\n',timeLeft,timeLeft/60,timeLeft/3600);
     
 end

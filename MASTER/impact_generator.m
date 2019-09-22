@@ -32,8 +32,8 @@ C2    = 5200;  % m/s (Al 7075)
 S2    = 1.36;  
 rho02 = 2810; 
 
-% Plate thickness
-t     = 0.003; % Thickness of the plate. 
+% Plate thickness NOTE: Modified from 3mm to 1 mm by Renato & Salvatore
+t     = 0.001; % Thickness of the plate. 
 
 % Load data
 flux                      = importflux(file_path); 
