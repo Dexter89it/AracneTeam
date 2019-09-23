@@ -8,7 +8,7 @@
 % Author: Cirelli Renato
 % Team: ARACNE
 % Date: 22/09/2019
-% Revision: 5
+% Revision: 6
 %
 % ChangeLog
 % 16/08/2019 - First Version
@@ -51,10 +51,10 @@ collDim = length(filesColl);
 sensSelIdx = 1:16;
 
 % Sampling frequency of the acquisition system in Hz
-sFreq = 500; %Hz
+sFreq = 5000; %Hz
 
 % Show data extraction plot during the pre-processing
-showPlots = true;
+showPlots = false;
 
 %% DO NOT TOUCH THIS SECTION PLEASE
 
@@ -62,7 +62,7 @@ showPlots = true;
 sensCount  = length(sensSelIdx);
 
 if sensCount>size(filesColl(1).myCollector.data.acc.z,1)
-   error('Maximum number of sensor is %d',size(filesColl(1).myCollector.data.acc.z,1)); 
+   error('Maximum number of sensor is %d',size(filesColl(1).myCollector.data.disp.z,1)); 
 end
 
 % Preallocation
@@ -70,9 +70,10 @@ charTime = zeros(sensCount,collDim);
 charVal = zeros(sensCount,collDim);
 sensPosX = zeros(sensCount,collDim);
 sensPosY = zeros(sensCount,collDim);
+sensDist = zeros(sensCount,collDim);
 impP = zeros(1,collDim);
 impPosX = zeros(1,collDim);
-impcePosY = zeros(1,collDim);
+impPosY = zeros(1,collDim);
 
 % Figure set-up
 if showPlots
@@ -108,8 +109,8 @@ for j = 1:collDim
     
     % Iterate the interpolation over the rows
     for rr = 1 : sensCount
-        memData_fcn = griddedInterpolant(simTime,simData(rr,:));
-        memDataRef_fcn = griddedInterpolant(simTime,refData(rr,:));
+        memData_fcn = griddedInterpolant(simTime,simData(rr,:),'spline');
+        memDataRef_fcn = griddedInterpolant(simTime,refData(rr,:),'spline');
         
         memData(rr,:) = memData_fcn(tempTime);
         memDataRef(rr,:) = memDataRef_fcn(tempTime);
@@ -119,6 +120,12 @@ for j = 1:collDim
     simTime = tempTime;
     simData = memData;
     refData = memDataRef;
+    
+    % Normalization of the data in respect the sensr maximum response
+    for sensSel = 1:sensCount
+        simData(sensSel,:) = simData(sensSel,:)./max(abs(simData(sensSel,:)));
+        refData(sensSel,:) = refData(sensSel,:)./max(abs(refData(sensSel,:)));
+    end
     
     % Find the minimum value for the maximum displacement among the sensors
     [maxResp,maxIdx] = max(abs(refData),[],2);
@@ -145,6 +152,7 @@ for j = 1:collDim
             charTime(k,j) = simTime(refTimeIdx);
             sensPosX(k,j) = filesColl(j).myCollector.mesh.x(k,1);
             sensPosY(k,j) = filesColl(j).myCollector.mesh.y(k,1);
+            sensDist(k,j) = norm([sensPosX(k,j);sensPosY(k,j)]);
             continue
         end
         
@@ -163,6 +171,8 @@ for j = 1:collDim
         sensPosX(k,j) = filesColl(j).myCollector.mesh.x(k,1);
         sensPosY(k,j) = filesColl(j).myCollector.mesh.y(k,1);
         
+        sensDist(k,j) = norm([sensPosX(k,j);sensPosY(k,j)]);
+        
     end
     
     % Pause the execution if the plots are requested
@@ -176,7 +186,7 @@ for j = 1:collDim
 
     % Extract the impact location
     impPosX(j) = filesColl(j).myCollector.Parameters.impact(1);
-    impcePosY(j) = filesColl(j).myCollector.Parameters.impact(2);
+    impPosY(j) = filesColl(j).myCollector.Parameters.impact(2);
     
 end
 
@@ -186,24 +196,24 @@ fprintf('- - -\nData extraction completed :) \n\n')
 figure()
 hold on
 for j = 1:collDim
-    plot(impPosX(j),impcePosY(j),'r.','MarkerSize',30*impP(j)./max(impP))
+    plot(impPosX(j),impPosY(j),'r.','MarkerSize',30*impP(j)./max(impP))
     plot(sensPosX(:,j),sensPosY(:,j),'gO','MarkerFaceColor',[0.4660 0.6740 0.1880])
 end
 
 %% Definition of input and output vector for the training sessions
 
 % Build the NN Output Vector
-outputY = [impPosX;impcePosY];
+outputY = [impPosX;impPosY];
 
 % Build the NN Input Vector
 
 % Neural Input Vector Builder #1
-% [...,sPosX_i,sPosY_i,charTime_i,charVal_i,...]'
-% inputX = zeros(4*sensCount,collDim);
-% inputX(1:4:4*sensCount,:) = sensPosX;
-% inputX(2:4:4*sensCount,:) = sensPosY;
-% inputX(3:4:4*sensCount,:) = charTime;
-% inputX(4:4:4*sensCount,:) = charVal;
+%[...,sPosX_i,sPosY_i,charTime_i,charVal_i,...]'
+inputX = zeros(4*sensCount,collDim);
+inputX(1:4:4*sensCount,:) = sensPosX;
+inputX(2:4:4*sensCount,:) = sensPosY;
+inputX(3:4:4*sensCount,:) = charTime;
+inputX(4:4:4*sensCount,:) = charVal;
 
 % Neural Input Vector Builder #2
 % [...,sPosX_i,sPosY_i,charTime_i,...]'
@@ -212,20 +222,20 @@ outputY = [impPosX;impcePosY];
 % inputX(2:3:3*sensCount,:) = sensPosY;
 % inputX(3:3:3*sensCount,:) = charTime;
 % 
-% % Neural Input Vector Builder #3
-% % [...,charTime_i,charVal_i,...]'
+% Neural Input Vector Builder #3
+% [...,charTime_i,charVal_i,...]'
 % inputX = zeros(2*sensCount,collDim);
-% inputX(1:2:2*sensCount,:) = charTime;
-% inputX(2:2:2*sensCount,:) = charVal;
-% 
+% inputX(1:2:2*sensCount,:) = sensDist;
+% inputX(2:2:2*sensCount,:) = charTime;
+% % 
 % Neural Input Vector Builder #4
 % [...,charTime_i,...]'
-inputX = charTime;
+% inputX = charTime;
 
 %%
 % Pre-processing info
 preProcInfo.origin = filename1;
-preProcInfo.sensIDs = sensSelIdx;
+preProcInfo.sensIDs = sensSelIdx';
 preProcInfo.sensCount = sensCount;
 preProcInfo.sFreq = sFreq;
     
