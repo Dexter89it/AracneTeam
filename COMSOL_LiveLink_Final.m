@@ -9,7 +9,7 @@
 %         Calvo, Aloisia Russo.
 % Team: ARACNE
 % Date: 21/09/2019
-% Revision: 9.1
+% Revision: 9.2
 %
 % ChangeLog
 % 31/05/2019 - First Version
@@ -144,8 +144,35 @@ mkdir([resFolder,'\',simName]);
 mySetUp.simDate = resFolder;
 mySetUp.simName = simName;
 
-% Data Generation
-[dt,P,d,up2,v,G] = impact_generator('./MASTER/total_flux.txt',setDim);
+% Exclude the penetration check TRUE case
+count = 0;
+% Preallocation
+impColl = zeros(setDim,7);
+
+while count < setDim
+    
+    % incremente counter
+    count = count + 1;
+
+    % Data Generation
+    temp = impact_generator('./MASTER/total_flux.txt',1);
+    
+    % Check penetration
+    if temp(6) == 1
+        count = count - 1;
+    else
+        impColl(count,:) = temp; 
+    end
+    
+end
+
+dt = impColl(:,1);
+P = impColl(:,2);
+d = impColl(:,3);
+up2 = impColl(:,4);
+v = impColl(:,5);
+crosspen = impColl(:,6);
+G = impColl(:,7);
 
 % Preallocation
 shootTime = zeros(1,setDim);
@@ -172,6 +199,7 @@ for k = 1 : setDim
     myCollector.Parameters.d = d(k);
     myCollector.Parameters.up2 = up2(k);
     myCollector.Parameters.v = v(k);
+    myCollector.Parameters.crospen = crosspen(k); 
     myCollector.Parameters.G = G(k);
     myCollector.Parameters.impact = posVal;
           
