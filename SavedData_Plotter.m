@@ -1,4 +1,12 @@
-% This script shows the collected data
+% 
+% This scritp shows the data of the loaded simulation files. Two possible
+% case are covered
+%
+%   Single Simulation File
+%   It is possible to choose between data type and multiple sensor reponse
+%
+%   Multiple Simulation File
+%   It is possible to choose between data type and a single sensor response
 % 
 % NOTE
 % The model is created in COMSOL GUI and importated here as it is. This
@@ -6,8 +14,8 @@
 % -------------------------------------------------------------------------
 % Author: Cirelli Renato, Ventre Francesco
 % Team: ARACNE
-% Date: 16/08/2019
-% Revision: 8
+% Date: 23/09/2019
+% Revision: 10
 %
 % ChangeLog
 % 31/05/2019 - First Version
@@ -17,6 +25,9 @@
 % 16/08/2019 - Time vector is now an array (not a matrix anymore), the node
 %              of evaluation and the impact location is shown in a
 %              separated window
+% 23/09/2019 - The code has been rewritten to accept more than one
+%              simulation file and to allow the selection of which data to
+%              visualize and about which sensor
 %
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
@@ -24,7 +35,7 @@
 % work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
 % -------------------------------------------------------------------------
 clear
-close all
+%close all
 clc
 
 %All the figure are docked in one window
@@ -38,66 +49,185 @@ addpath(genpath('myFunctions'))
 %%
 
 % Select and load the file
-[filename1,filepath1]=uigetfile({'*.mat'},'Select Data File','MultiSelect','off');
-load([filepath1,filename1]);
+[filename1s,filepath1]=uigetfile({'*.mat'},'Select Data File','MultiSelect','on');
 
-%% Evaluaton Point Plot
-figure()
-xlabel('$x \; [m]$');
-ylabel('$y \; [m]$');
-zlabel('$z \; [m]$');
-hold on
-plot3(myCollector.mesh.x(:,1),myCollector.mesh.y(:,1),myCollector.mesh.z(:,1),'O');
-plot3(myCollector.Parameters.impact(1),myCollector.Parameters.impact(2),0,'rx');
-
-%%
-myList = fieldnames(myCollector.data);
-[indx,tf] = listdlg('ListString',myList);
-
-if ~tf
-    error('Please select something to plot.\n')
+% Check if the loaded files are more than one
+try
+    temp = filename1s{1};
+    nFiles = size(filename1s,2);
+catch
+    nFiles = 1;
 end
 
-for k = 1:length(indx)
+% Generate an unique color for each data file
+plotColor =  rand(nFiles,3);
+
+% Iterate over all the loaded simulations
+for ldF = 1:nFiles
+    
+    % Load the data
+    try
+        filename1 = filename1s{ldF};
+    catch
+        filename1 = filename1s;
+    end
+    
+    % Load one file in the workspace
+    load([filepath1,filename1]);
+    
+    if ldF == 1
+        figure()
+        myAxesHdl_grid = axes();
+        axis(myAxesHdl_grid,[0,1,0,1]);
+        xlabel(myAxesHdl_grid,'$x \; [m]$');
+        ylabel(myAxesHdl_grid,'$y \; [m]$');
+        zlabel(myAxesHdl_grid,'$z \; [m]$');
+        hold on
+    end
+        
+    % Show the sensor position and ID
+    if ldF == 1
+        for k = 1:size(myCollector.mesh.x,1)
+            
+            sensPos = [myCollector.mesh.x(k,1),myCollector.mesh.y(k,1),];
+            plot(myAxesHdl_grid,sensPos(1),sensPos(2),'bO');
+            
+            sensPos = sensPos + 0.005;
+            myLabel = sprintf('S:%d',k);
+            text(myAxesHdl_grid,sensPos(1),sensPos(2),myLabel);
+        end
+    end    
+    
+    % Show the impact location, the simulation ID and the pressure P
+    impLoc = myCollector.Parameters.impact;
+    plot(myAxesHdl_grid,impLoc(1),impLoc(2),'rx');
+    
+    impLoc = impLoc + 0.005;
+    myLabel = sprintf('ID: %d   \nP: %.3e Pa\n dt: %.3e',ldF,myCollector.Parameters.P,myCollector.Parameters.dt);
+    text(myAxesHdl_grid,impLoc(1),impLoc(2),myLabel);
+    
+    
+    if ldF == 1
+        myListFields = fieldnames(myCollector.data);
+        [chosenFields,tf] = listdlg('ListString',myListFields);
+
+        if ~tf
+            error('Please select a field to plot.\n')
+        end
+
+        % Field selection dialog
+        myListIdx = split(num2str(1:size(myCollector.data.acc.x,1),'%.2d,'),',');
+        myListIdx(end) = [];
+
+        % If only one loaded file the selection can be multiple otherwise
+        % single only
+        if nFiles == 1
+            selMode = 'multiple';
+        else
+            selMode = 'single';
+        end
+        
+        % Sensor selection dialog
+        [chosenNodes,~] = listdlg('ListString',myListIdx,'SelectionMode',selMode);
+
+        if ~tf
+            error('Please select a node to plot.\n')
+        end
+    end
+
+    % Nuber of chosen fields
+    nFieldChosen = length(chosenFields);
+    % Create the axes only at the first call
+    if ldF == 1
+        % Create an axes for every selected field
+        for k= 1:nFieldChosen
+           figure()
+           myAxesHdl(k) = axes(); 
+           hold on
+           legend()
+        end
+    end
+    
+    % For each selected field
+    for k = 1:nFieldChosen
+    
+    % Select an axes to use
+    selAxes = myAxesHdl(k);
     
     % Dynamic field selection for myCollector structure
-    tempFiled = myCollector.data.(myList{indx(k)});
+    tempField = myCollector.data.(myListFields{chosenFields(k)});
     
-    if isnumeric(tempFiled)
+    % Check what type of data it is 
+     if isnumeric(tempField)
         % The data is a numeric one --> Direct plot
         
-        figure()
-        handler_ax = axes;
-        title(myList{indx(k)})
-        xlabel('$time \; [s]$')
-        ylabel(myList{indx(k)})
-        hold on
+        title(selAxes,myListFields{chosenFields(k)})
+        xlabel(selAxes,'$time \; [s]$')
+        ylabel(selAxes,myListFields{chosenFields(k)})
         
-        plot(handler_ax,myCollector.timeEval',tempFiled')
+        % For each chosen nodes
+        for j = chosenNodes
+            
+            % If only one loaded file, show the sensor ID
+            if nFiles == 1
+                dispNameStr = sprintf('S: %d',j);
+            else
+                dispNameStr = sprintf('File ID: %d',ldF);
+            end
+            
+            % Data Normalization upon the maximum of the response
+            tempField(j,:) = tempField(j,:)./max(abs(tempField(j,:)));
+            plot(selAxes,myCollector.timeEval',tempField(j,:)','MarkerFaceColor',plotColor(ldF,:),'DisplayName',dispNameStr);
+        end
         
     else
         % The data is a structure --> Data extraction --> Data Plot
        
-        nameFileds = fieldnames(tempFiled);
+        % Store the resulting structure
+        nameFileds = fieldnames(tempField);
+        % Count how many fields are present
         countFields = length(nameFileds);
         
-        figure()
-        
-        for h = 1:countFields
-            
-            % Create a subplot
-            subplot(countFields,1,h)
+        % Select only the out of plane component (PARTICULAR CASE)
+        for h = 3
+
             % Extrac the data
-            tempData = tempFiled.(nameFileds{h});
-            % Plot the data
-            plot(myCollector.timeEval',tempData')
-            ylabel(nameFileds{h});
-            xlabel('$time \; [s]$')
+            tempData = tempField.(nameFileds{h});
+            
+            % Find the minimum of the maximum of the overall respons
+            minOfTheMax = min(max(abs(tempData),[],2));
+            
+            for j = chosenNodes
+                % Data Normalization upon the maximum of the response
+                tempData(j,:) = tempData(j,:)./max(abs(tempData(j,:)));
+%                 % Data normalization upon the minimum of the maximum of all
+%                 % the responses
+%                 tempData(j,:) = tempData(j,:)./minOfTheMax;
+                
+                if nFiles == 1
+                    dispNameStr = sprintf('S %d',j);
+                else
+                    dispNameStr = sprintf('File ID: %d',ldF);
+                end
+                
+                % Plot the data
+                plot(selAxes,myCollector.timeEval',tempData(j,:)','MarkerFaceColor',plotColor(ldF,:),'DisplayName',dispNameStr);
+                ylabel(selAxes,nameFileds{h});
+                xlabel(selAxes,'$time \; [s]$')
+            end
         
         end
         
-        suptitle(myList{indx(k)});
+        if nFiles == 1
+            dispNameStr = '';
+        else
+            dispNameStr = sprintf('S %d',chosenNodes);
+        end
+        title(selAxes,[myListFields{chosenFields(k)},' ',dispNameStr]);
         
+     end
+    
     end
+    
     
 end
