@@ -181,8 +181,8 @@ for k = 1 : setDim
     % Square impulse time
     model.param.set('dt_imp',[num2str(dt(k)),'[s]']);
     % Location of the applied force
-    model.param.set('impact_x',[num2str(posVal(1)),'[m]']);
-    model.param.set('impact_y',[num2str(posVal(2)),'[m]']);
+    model.param.set('x_imp',[num2str(posVal(1)),'[m]']);
+    model.param.set('y_imp',[num2str(posVal(2)),'[m]']);
     % Impact diameter
     model.param.set('d_imp',[num2str(d(k)),'[m]']);
     
