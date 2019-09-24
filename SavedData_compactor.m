@@ -1,17 +1,17 @@
+% -------------------------------------------------------------------------
 % This script compacts the collected data into one file
 % 
 % NOTE
 % The model is created in COMSOL GUI and importated here as it is. This
 % reduced the ammount of code needed to properly set-up and run a model.
 % -------------------------------------------------------------------------
-% Author: Cirelli Renato, Ventre Francesco
-% Team: ARACNE
-% Date: 16/08/2019
-% Revision: 1
-%
-% ChangeLog
+% Authors:      Cirelli Renato, Ventre Francesco, Salvatore Bella,
+%               Alvaro Romero Calvo, Aloisia Russo.
+% Team:         ARACNE
+% Date:         16/08/2019
+% Revision:     1
+% ---------------------------- ChangeLog ----------------------------------
 % 16/08/2019 - First Version
-%
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this

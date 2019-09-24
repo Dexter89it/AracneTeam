@@ -1,41 +1,116 @@
-%
-% FNN for force estimation #1
+% -------------------------------------------------------------------------
+% FNN for force estimation
 % 
 % NOTE
 % The model is created in COMSOL GUI and importated here as it is. This
 % reduced the ammount of code needed to properly set-up and run a model.
 % -------------------------------------------------------------------------
-% Author: Cirelli Renato, Francesco Ventre, Bella Salvatore Andrea
-% Team: ARACNE
-% Date: 15/09/2019
-% Revision: 2
-%
-% ChangeLog
+% Authors:      Cirelli Renato, Ventre Francesco, Salvatore Bella,
+%               Alvaro Romero Calvo, Aloisia Russo.
+% Team:         ARACNE
+% Date:         24/09/2019
+% Revision:     3
+% ---------------------------- ChangeLog ----------------------------------
 % 23/08/2019 - First Version
 % 15/09/2019 - Removed possible options and left only the one chosen as
 %              final version.
+% 24/09/2019 - Dataset of training and testing are now loaded with a GUI
+%              and the trained NN is tested with non-training data. 
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
 % work. If not, see <http://creativecommons.org/licenses/by-sa/4.0/>.
 % -------------------------------------------------------------------------
 
+clear
+close all
 clc
 
+%All the figure are docked in one window
+set(0,'DefaultTextInterpreter','latex');
+set(0,'DefaultFigureWindowStyle','docked');
+set(0,'DefaultTextFontSize',12);
+set(0,'DefaultAxesFontSize',12);
+
+%% Load the pre-preocessed data
+
+% Choose a file for training session
+[filename1,filepath1] = uigetfile({'*.mat'},'Pre-processed data selection for TRAINING','MultiSelect','off');
+% Load the chisen file
+trainData = load([filepath1,filename1]);
+
+% Choose a file for testing session
+[filename1,filepath1] = uigetfile({'*.mat'},'Pre-processed data selection for TEST','MultiSelect','off');
+% Load the chisen file
+testData = load([filepath1,filename1]);
+
+clear filepath1 filename1
+
+%% Parameters & Options
+
 % Number of NN to train
-nnCount = 3;
+nnCount = 10;
+
 % Number of training session per each NN
 keepTraining = 1;
+
+% Validation percentage (referred to the training data)
+trPerc = 0.85;
+
+% Test percentage (referred to the training data)
+valPerc = 0.1;
+
+% Maximum fails
+maxFails = 200;
+
+% Maximum Epochs
+maxEpochs = 500;
+
+% Parameter of merit for the selection of the best NN
+pMeritMem = 1000;
+
+%Set the training function
+% Levenberg-Marquardt
+trainFcn = 'trainlm';
+% % BFGS Quasi-Newton
+%trainFcn = 'trainbfg';
+% % Resilient Backpropagation
+%trainFcn = 'trainrp';
+% % Scaled Conjugate Gradient
+%trainFcn = 'trainscg';
+% % Conjugate Gradient with Powell/Beale Restarts
+%trainFcn = 'traincgb';
+% % Fletcher-Powell Conjugate Gradient
+%trainFcn = 'traincgf';
+% % Polak-Ribiére Conjugate Gradient
+%trainFcn = 'traincgp';
+% % One Step Secant
+%trainFcn = 'trainoss';
+% Variable Learning Rate Backpropagation
+%trainFcn = 'traingdx';
+
+% Set the performance function
+% % Mean absolute error 
+%performFcn = 'mae';
+% % Mean squared error
+performFcn = 'mse';
+% % Sum absolute error
+%performFcn = 'sae';
+% Sum squared error
+%performFcn = 'sse';
+% % Cross-entropy
+%performFcn = 'crossentropy';
+% % Mean squared
+%performFcn = 'msesparse';
+
+%% DO NOT TOUCH THIS SECTION PLEASE
 
 % Preallocation
 netColl = {};
 errorColl = {};
 shootTime = zeros(1,nnCount);
 
-% Parameter of merit for the selection of the best neural net
-pMeritMem = 1000;
-
-% loopCont
+%loopCont
 loopCount = 0;
 
 
@@ -46,15 +121,15 @@ for k = 1:nnCount
       trainFcn = 'trainlm';
     
     % Neural network definition
-    net = feedforwardnet([25 3],trainFcn);
+    net = feedforwardnet([25],trainFcn);
 
     % Set the performance function
     % Mean squared error
     net.performFcn = 'mse';
     
     % Training, validation and test percentage of the total training set
-    net.divideParam.trainRatio = 0.85;
-    net.divideParam.valRatio = 0.10; 
+    net.divideParam.trainRatio = 0.95;
+    net.divideParam.valRatio = 0.05; 
     net.divideParam.testRatio  = 1-net.divideParam.trainRatio-net.divideParam.valRatio;
 
     % Maximum training fail limit
@@ -68,7 +143,7 @@ for k = 1:nnCount
         
         % Training th NN
         fprintf('-- %d\n',j);
-        [net,tr,y,e] = train(net,inputX,outputY);
+        [net,tr,y,e] = train(net,trainData.inputX,trainData.outputY);
         
         loopCount = loopCount + 1;
         fprintf('Mean squared normalized error : %e \n',mse(e));
@@ -99,24 +174,39 @@ for k = 1:nnCount
     
 end
 
-%%
+% Test session of the best NN
 figure()
 cla
-predictedY = best.net(inputX);
-plotregression(outputY,predictedY,['Regression for best NN  with ID ',num2str(best.idk)])
+
+% Apply the NN to the test data
+predictedY = best.net(testData.inputX);
+% Compute the regression
+plotregression(testData.outputY,predictedY,['Regression for best NN  with ID ',num2str(best.idk)])
+
 
 figure()
 cla
-temp = (predictedY - outputY); 
-histogram(temp,100);
-title('Force Prediction Error')
+
+% Error computation
+temp = (predictedY - testData.outputY); 
+histogram(temp(1,:),100);
+title('Pa Adimensional Error [-]')
+
 
 figure()
-cla
 hold on
-plot(1:collDim,outputY,'b-.','DisplayName','Data')
-plot(1:collDim,predictedY,'r-x','DisplayName','Prediction')
+cla
+
+plot(testData.outputY,'b-','DisplayName','Data')
+plot(predictedY,'r--','DisplayName','Prediction')
 legend
-title('Force Prediction')
+title('Adimension Pressure Prediction')
+
+figure()
+hold on
+cla
+
+plot((abs(predictedY-testData.outputY)./testData.outputY).*100,'b-')
+title('Prediction \% Error')
 
 fprintf('The best is NN %d\n',best.idk)

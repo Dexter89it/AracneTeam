@@ -1,4 +1,4 @@
-% 
+% -------------------------------------------------------------------------
 % This scritp shows the data of the loaded simulation files. Two possible
 % case are covered
 %
@@ -12,12 +12,12 @@
 % The model is created in COMSOL GUI and importated here as it is. This
 % reduced the ammount of code needed to properly set-up and run a model.
 % -------------------------------------------------------------------------
-% Author: Cirelli Renato, Ventre Francesco
-% Team: ARACNE
-% Date: 23/09/2019
-% Revision: 10
-%
-% ChangeLog
+% Authors:      Cirelli Renato, Ventre Francesco, Salvatore Bella,
+%               Alvaro Romero Calvo, Aloisia Russo.
+% Team:         ARACNE
+% Date:         23/09/2019
+% Revision:     10
+% ---------------------------- ChangeLog ----------------------------------
 % 31/05/2019 - First Version
 % 15/08/2019 - Fixed a bug where the first element of the collected data
 %              was omitted from the selection list, fixed the timeEval
@@ -28,7 +28,6 @@
 % 23/09/2019 - The code has been rewritten to accept more than one
 %              simulation file and to allow the selection of which data to
 %              visualize and about which sensor
-%
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
@@ -103,7 +102,10 @@ for ldF = 1:nFiles
     plot(myAxesHdl_grid,impLoc(1),impLoc(2),'rx');
     
     impLoc = impLoc + 0.005;
-    myLabel = sprintf('ID: %d   \nP: %.3e Pa\n dt: %.3e',ldF,myCollector.Parameters.P,myCollector.Parameters.dt);
+    myLabel = sprintf('ID: %d   \nP: %.3e Pa\n dt: %.3e\n d: %.3e',...
+                      ldF,myCollector.Parameters.P,...
+                      myCollector.Parameters.dt,...
+                      myCollector.Parameters.d);
     text(myAxesHdl_grid,impLoc(1),impLoc(2),myLabel);
     
     

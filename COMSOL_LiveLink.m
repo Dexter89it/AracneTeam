@@ -1,3 +1,4 @@
+% -------------------------------------------------------------------------
 % This script loads a COMSOL model through LiveLink server, it sets some
 % parameter and runs the simulation.
 % 
@@ -5,13 +6,13 @@
 % The model is created in COMSOL GUI and importated here as it is. This
 % reduced the ammount of code needed to properly set-up and run a model.
 % -------------------------------------------------------------------------
-% Author: Cirelli Renato, Ventre Francesco, Salvatore Bella, Alvaro Romero
-%         Calvo, Aloisia Russo.
-% Team: ARACNE
-% Date: 21/09/2019
-% Revision: 9.2
+% Authors:      Cirelli Renato, Ventre Francesco, Salvatore Bella,
+%               Alvaro Romero Calvo, Aloisia Russo.
+% Team:         ARACNE
+% Date:         23/09/2019
+% Revision:     9.2
+% ---------------------------- ChangeLog ----------------------------------
 %
-% ChangeLog
 % 31/05/2019 - First Version
 % 05/06/2019 - Parameters can now be set and the results extracted to use
 %              them in matlab.
@@ -20,15 +21,16 @@
 % 01/08/2019 - Added a gui interface for the selection of .mph file, type
 %              of data to be saved.
 %            - Updated file creation to maintain a clear view of when and
-%              how a simulation is created
+%              how a simulation is created.
 % 15/08/2019 - Evaluation points are now saved under mesh field of
 %              myCollector, fixed s bug in the code related to data
 %              collection.
 % 16/08/2019 - The nodal point selection is now giving all the nodal point
 %              using mpheval function
-% 17/08/2019 - Added a pause after a simulation
+% 17/08/2019 - Added a pause after a simulation.
 % 21/09/2019 - Integration with Alvaro's code, saved data from second study
-%
+% 23/09/2019 - Corrected a bug that was affecting the impact location
+%              setting in COMSOL.
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
@@ -219,7 +221,7 @@ for k = 1 : setDim
     fprintf('Geometry has been updated\n');
     % Update the mesh
     model.mesh('mesh1').run();
-    fprintf('Mesh has been updated\n\n');
+    fprintf('Mesh has been updated\n');
     
     fprintf('Simulation has started\n');
     tic

@@ -1,16 +1,19 @@
-%
-% NN Data pre-processor for the position prediction
+% -------------------------------------------------------------------------
+% This script allows the pre-processing of the data for the NN training and
+% testing session. It contains different algorithms of extraction and it
+% produces the files necessary for both position and force estimation
+% predic
 % 
 % NOTE
 % The model is created in COMSOL GUI and importated here as it is. This
 % reduced the ammount of code needed to properly set-up and run a model.
 % -------------------------------------------------------------------------
-% Author: Cirelli Renato
-% Team: ARACNE
-% Date: 22/09/2019
-% Revision: 6
-%
-% ChangeLog
+% Authors:      Cirelli Renato, Ventre Francesco, Salvatore Bella,
+%               Alvaro Romero Calvo, Aloisia Russo.
+% Team:         ARACNE
+% Date:         24/09/2019
+% Revision:     6
+% ---------------------------- ChangeLog ----------------------------------
 % 16/08/2019 - First Version
 % 22/08/2019 - Second Version
 % 23/08/2019 - Fixed the characteristic time value for the reference
@@ -18,7 +21,9 @@
 % 22/09/2019 - The processed signals are sampled at a specified sampling
 %              frequency in Hz, the reuslting dataset is saved in the same
 %              folder of the used compacted data.
-%
+% 24/09/2019 - Data is no loaded with GUI, the interpolation is an option,
+%              two algorithms of characteristic data extraction are defined,
+%              the output vector is now a concatenation of vectors.
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
@@ -34,6 +39,7 @@ set(0,'DefaultTextInterpreter','latex');
 set(0,'DefaultFigureWindowStyle','docked');
 set(0,'DefaultTextFontSize',12);
 set(0,'DefaultAxesFontSize',12);
+
 %% Load the compacted archive
 % Choose a file
 [filename1,filepath1] = uigetfile({'*.mat'},'Select Data For Trainin','MultiSelect','off');
@@ -43,15 +49,13 @@ load([filepath1,filename1]);
 % Loaded archive size
 collDim = length(filesColl);
 
-%clear filepath1 filename1
-
 %% Preprocessor Parameters and Options
 
 % Sensor ID to be consider (from 1 to 16)
-sensSelIdx = 1:16;
+sensSelIdx =1:16;
 
 % Sampling frequency of the acquisition system in Hz
-sFreq = 5000; %Hz
+sFreq = 10000; %Hz
 
 % Show data extraction plot during the pre-processing
 showPlots = false;
@@ -71,9 +75,10 @@ charVal = zeros(sensCount,collDim);
 sensPosX = zeros(sensCount,collDim);
 sensPosY = zeros(sensCount,collDim);
 sensDist = zeros(sensCount,collDim);
-impP = zeros(1,collDim);
+impF = zeros(1,collDim);
 impPosX = zeros(1,collDim);
 impPosY = zeros(1,collDim);
+myChoice = -1;
 
 % Figure set-up
 if showPlots
@@ -91,81 +96,116 @@ for j = 1:collDim
     simTime = filesColl(j).myCollector.timeEval;
     % Simulation data to extract
     simData = filesColl(j).myCollector.data.disp.z(sensSelIdx,:);
-    % Simulation data taken as reference data
-    refData = filesColl(j).myCollector.data.disp.z(sensSelIdx,:);
     
-    % Interp data along the rows and sample the signals at a certain
-    % frequency
-    
-    % Acquisition time
-    sTime = 1/sFreq;
-    % Sampled time vector
-    tempTime = simTime(1):sTime:simTime(end);
-    
-    % Preallocation
-    dimRes = [sensCount,length(tempTime)];
-    memData = zeros(dimRes);
-    memDataRef = zeros(dimRes);
-    
-    % Iterate the interpolation over the rows
-    for rr = 1 : sensCount
-        memData_fcn = griddedInterpolant(simTime,simData(rr,:),'spline');
-        memDataRef_fcn = griddedInterpolant(simTime,refData(rr,:),'spline');
-        
-        memData(rr,:) = memData_fcn(tempTime);
-        memDataRef(rr,:) = memDataRef_fcn(tempTime);
+    % Ask the first time only
+    if myChoice == -1
+        myList = {'Interpolate the data','Raw Data from COMSOL'};
+        [myChoice,tf] = listdlg('ListString',myList,'SelectionMode','single');
     end
-    
-    % Redefinition of the extracted data as the sampled data
-    simTime = tempTime;
-    simData = memData;
-    refData = memDataRef;
+    if ~tf
+        error('Please select something.\n')
+    else
+        if myChoice == 1
+            % Interp data along the rows and sample the signals at a certain
+            % frequency
+
+            % Acquisition time
+            sTime = 1/sFreq;
+            % Sampled time vector
+            tempTime = simTime(1):sTime:simTime(end);
+
+            % Preallocation
+            dimRes = [sensCount,length(tempTime)];
+            memData = zeros(dimRes);
+
+            % Iterate the interpolation over the rows
+            for rr = 1 : sensCount
+                memData_fcn = griddedInterpolant(simTime,simData(rr,:),'spline');
+
+                memData(rr,:) = memData_fcn(tempTime);
+            end
+
+            % Redefinition of the extracted data as the sampled data
+            simTime = tempTime;
+            simData = memData;
+        end
+    end
     
     % Normalization of the data in respect the sensr maximum response
     for sensSel = 1:sensCount
         simData(sensSel,:) = simData(sensSel,:)./max(abs(simData(sensSel,:)));
-        refData(sensSel,:) = refData(sensSel,:)./max(abs(refData(sensSel,:)));
     end
-    
-    % Find the minimum value for the maximum displacement among the sensors
-    [maxResp,maxIdx] = max(abs(refData),[],2);
-    [~,minMaxIdx] = min(maxResp);
-    
-    % Save the reference sensor and reference time on that sensor 
-    refSensor = minMaxIdx;
-    refTimeIdx = maxIdx(minMaxIdx);
     
     % Show the data if requested
     if showPlots
-        plot(handlerAx_1,simTime,refData');
-        plot(handlerAx_1,simTime(refTimeIdx),refData(refSensor,refTimeIdx),'bO')
+        plot(handlerAx_1,simTime,simData');
     end
     
-    % This loop is extracting characteristic data from the sampled
-    % signals
+    % Loops on each considered sensor
     for k = 1:sensCount
+
+% ---- Extraction algorithm #1
+% -- Search the first intersection with zero after the maximum peak of
+% -- the signal. If no sign change, search it aftet the minimum of the
+% -- signal instead.
+
+% %         % Search the maximum of theresponse
+% %         [~,refIdx] = max(simData(k,:));
+% %         
+% %         % Find the index at which the zero is crossed and choose the
+% %         % previose one
+% %         charIdx = refIdx + find(simData(k,refIdx:end)<=0,1) -1;
+% %         
+% %         if isempty(charIdx)
+% %             % Search the minimum instead
+% %             [minResp,minIdx] = min(simData(k,:));
+% %             charIdx = minIdx + find(simData(k,minIdx:end)>=0,1);
+% %         end
+% %         % Extract characteristic values
+% %         charVal(k,j) = simData(k,charIdx);
+% %         charTime(k,j) = simTime(charIdx);
+% %         
+% %         % Show the char time if requested
+% %         if showPlots
+% %             plot(charTime(k,j),charVal(k,j),'r.')
+% %         end
+
+% ---- Extraction algorithm #2
+% -- Search the maximum and the minimum locations of the signal avoiding
+% -- the point at the end of the integration period
         
-        % If the k-th sensor is the reference sensor, do not compute things
-        % again. Use the reference one.
-        if k == refSensor
-            charVal(k,j) = refData(k,refTimeIdx);
-            charTime(k,j) = simTime(refTimeIdx);
-            sensPosX(k,j) = filesColl(j).myCollector.mesh.x(k,1);
-            sensPosY(k,j) = filesColl(j).myCollector.mesh.y(k,1);
-            sensDist(k,j) = norm([sensPosX(k,j);sensPosY(k,j)]);
-            continue
-        end
-        
-        % Find the charactertistic data for the time response of the k-th
-        % sensor
-        charTimeIdx = find(abs(simData(k,:))>=abs(refData(refSensor,refTimeIdx)),1);
-        charVal(k,j) = simData(k,charTimeIdx);
-        charTime(k,j) = simTime(charTimeIdx);
+         % Search the maximum of theresponse
+         [~,rIdx] = max(simData(k,:));
+         
+         % If the maximum is at the end of the simulation the minimum is
+         % considered (maximum of the inverted response)
+         if rIdx == length(simTime)
+             [~,rIdx] = max(-simData(k,:));
+             [~,lIdx] = max(simData(k,1:rIdx));
+         else
+             % Search the minima of the response between the initial time
+             % and the maximum value
+             [~,lIdx] = min(simData(k,1:rIdx));
+         end
+
+        % Extract characteristic values
+        charVal_l(k,j) = simData(k,lIdx);
+        charVal_r(k,j) = simData(k,rIdx);
+        charTime_l(k,j) = simTime(lIdx);
+        charTime_r(k,j) = simTime(rIdx);
         
         % Show the char time if requested
         if showPlots
-            plot(charTime(k,j),charVal(k,j),'r.')
+            plot(charTime_l(k,j),charVal_l(k,j),'r.')
+            plot(charTime_r(k,j),charVal_r(k,j),'g.')
         end
+        
+% ---- Extraction algorithm #3
+% -- ...
+% ---- Extraction algorithm #4
+% -- ...
+% ---- Extraction algorithm #5
+% -- ...
         
         % Extract the position of the sensor
         sensPosX(k,j) = filesColl(j).myCollector.mesh.x(k,1);
@@ -181,8 +221,12 @@ for j = 1:collDim
         cla
     end
     
-    % Extract the pressure of the impact
-    impP(j) = filesColl(j).myCollector.Parameters.P;
+    % Extract the impact properties
+    impP = filesColl(j).myCollector.Parameters.P;
+    impd = filesColl(j).myCollector.Parameters.d;
+    
+    % Compute the impact force
+    impF(j) = pi*impP*(impd/2)^2;
 
     % Extract the impact location
     impPosX(j) = filesColl(j).myCollector.Parameters.impact(1);
@@ -196,51 +240,47 @@ fprintf('- - -\nData extraction completed :) \n\n')
 figure()
 hold on
 for j = 1:collDim
-    plot(impPosX(j),impPosY(j),'r.','MarkerSize',30*impP(j)./max(impP))
+    plot(impPosX(j),impPosY(j),'r.','MarkerSize',30*impF(j)./max(impF))
     plot(sensPosX(:,j),sensPosY(:,j),'gO','MarkerFaceColor',[0.4660 0.6740 0.1880])
 end
 
 %% Definition of input and output vector for the training sessions
 
-% Build the NN Output Vector
-outputY = [impPosX;impPosY];
+% Build the NN Output for force estimation
+inputYp = [impPosX;
+           impPosY];
 
-% Build the NN Input Vector
+% Build the NN Input Vector for force estimation
+inputXp = [abs(charVal_r-charVal_l);
+           charTime_r-charTime_l];
 
-% Neural Input Vector Builder #1
-%[...,sPosX_i,sPosY_i,charTime_i,charVal_i,...]'
-inputX = zeros(4*sensCount,collDim);
-inputX(1:4:4*sensCount,:) = sensPosX;
-inputX(2:4:4*sensCount,:) = sensPosY;
-inputX(3:4:4*sensCount,:) = charTime;
-inputX(4:4:4*sensCount,:) = charVal;
+% Build the NN Output for force estimation
+inputYf = impF./max(impF);
 
-% Neural Input Vector Builder #2
-% [...,sPosX_i,sPosY_i,charTime_i,...]'
-% inputX = zeros(3*sensCount,collDim);
-% inputX(1:3:3*sensCount,:) = sensPosX;
-% inputX(2:3:3*sensCount,:) = sensPosY;
-% inputX(3:3:3*sensCount,:) = charTime;
-% 
-% Neural Input Vector Builder #3
-% [...,charTime_i,charVal_i,...]'
-% inputX = zeros(2*sensCount,collDim);
-% inputX(1:2:2*sensCount,:) = sensDist;
-% inputX(2:2:2*sensCount,:) = charTime;
-% % 
-% Neural Input Vector Builder #4
-% [...,charTime_i,...]'
-% inputX = charTime;
+% Build the NN Input Vector for force estimation
+inputXf = [abs(charVal_r-charVal_l);
+           charTime_r-charTime_l];
 
 %%
 % Pre-processing info
 preProcInfo.origin = filename1;
 preProcInfo.sensIDs = sensSelIdx';
 preProcInfo.sensCount = sensCount;
+preProcInfo.interp = myChoice;
 preProcInfo.sFreq = sFreq;
     
-% Save the results
+% Save the results for postion
+inputX = inputXp;
+outputY = inputYp;
 tempStr = split(filename1,'.');
 tmepStr = [filepath1,tempStr{1},'_preProcessed_NNpos.',tempStr{2}];
 save(tmepStr,'preProcInfo','inputX','outputY');
+
+% Save the results for force
+inputX = inputXf;
+outputY = inputYf;
+tempStr = split(filename1,'.');
+tmepStr = [filepath1,tempStr{1},'_preProcessed_NNfor.',tempStr{2}];
+save(tmepStr,'preProcInfo','inputX','outputY');
+
 fprintf('The pre-processed data has been saved in %s \n\n',tmepStr);
