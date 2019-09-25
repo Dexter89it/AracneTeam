@@ -255,7 +255,7 @@ inputXp = [abs(charVal_r-charVal_l);
            charTime_r-charTime_l];
 
 % Build the NN Output for force estimation
-inputYf = impF./max(impF);
+inputYf = impF./1e5; %[bar]
 
 % Build the NN Input Vector for force estimation
 inputXf = [abs(charVal_r-charVal_l);

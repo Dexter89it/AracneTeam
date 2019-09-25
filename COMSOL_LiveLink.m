@@ -159,11 +159,15 @@ while count < setDim
     % Data Generation
     temp = impact_generator('./MASTER/total_flux.txt',1);
     
-    % Check penetration
-    if temp(6) == 1
-        count = count - 1;
-    else
-        impColl(count,:) = temp; 
+    try
+        % Check penetration
+        if temp(6) == 1
+            count = count - 1;
+        else
+            impColl(count,:) = temp; 
+        end
+    catch
+        count = count - 1;  
     end
     
 end
@@ -181,8 +185,6 @@ shootTime = zeros(1,setDim);
 
 % Start to dance ;)
 for k = 1 : setDim
-    
-    tic
     
     % Preallocation
     myCollector = struct();
@@ -359,6 +361,6 @@ for k = 1 : setDim
 
     % Time left
     timeLeft = mean(shootTime(shootTime>0))*(setDim - k);
-    fprintf('The dataset will be ready in: %.1f [s] = %.1f [m] = %.1f [h]\n\n',timeLeft,timeLeft/60,timeLeft/3600);
+    fprintf('The dataset will be ready in: %.1f [s] = %.1f [m] = %.1f [h] (KIND OF)\n\n',timeLeft,timeLeft/60,timeLeft/3600);
     
 end
