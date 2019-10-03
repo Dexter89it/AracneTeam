@@ -15,8 +15,8 @@
 % Authors:      Cirelli Renato, Ventre Francesco, Salvatore Bella,
 %               Alvaro Romero Calvo, Aloisia Russo.
 % Team:         ARACNE
-% Date:         23/09/2019
-% Revision:     10
+% Date:         03/10/2019
+% Revision:     10.1
 % ---------------------------- ChangeLog ----------------------------------
 % 31/05/2019 - First Version
 % 15/08/2019 - Fixed a bug where the first element of the collected data
@@ -28,6 +28,8 @@
 % 23/09/2019 - The code has been rewritten to accept more than one
 %              simulation file and to allow the selection of which data to
 %              visualize and about which sensor
+% 03/10/2019 - Sensorial Network plot adapted for each simulation according
+%              to L
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
@@ -36,7 +38,7 @@
 clear
 %close all
 clc
-
+    
 %All the figure are docked in one window
 set(0,'DefaultTextInterpreter','latex');
 set(0,'DefaultFigureWindowStyle','docked');
@@ -74,10 +76,13 @@ for ldF = 1:nFiles
     % Load one file in the workspace
     load([filepath1,filename1]);
     
+    % Get plate length for current simulation
+    L = myCollector.Parameters.L;
+    
     if ldF == 1
         figure()
         myAxesHdl_grid = axes();
-        axis(myAxesHdl_grid,[0,1,0,1]);
+        axis(myAxesHdl_grid,[0,L,0,L]);
         xlabel(myAxesHdl_grid,'$x \; [m]$');
         ylabel(myAxesHdl_grid,'$y \; [m]$');
         zlabel(myAxesHdl_grid,'$z \; [m]$');
@@ -91,7 +96,7 @@ for ldF = 1:nFiles
             sensPos = [myCollector.mesh.x(k,1),myCollector.mesh.y(k,1),];
             plot(myAxesHdl_grid,sensPos(1),sensPos(2),'bO');
             
-            sensPos = sensPos + 0.005;
+            sensPos = sensPos + L/100;
             myLabel = sprintf('S:%d',k);
             text(myAxesHdl_grid,sensPos(1),sensPos(2),myLabel);
         end
@@ -101,7 +106,7 @@ for ldF = 1:nFiles
     impLoc = myCollector.Parameters.impact;
     plot(myAxesHdl_grid,impLoc(1),impLoc(2),'rx');
     
-    impLoc = impLoc + 0.005;
+    impLoc = impLoc + L/100;
     myLabel = sprintf('ID: %d   \nP: %.3e Pa\n dt: %.3e\n d: %.3e',...
                       ldF,myCollector.Parameters.P,...
                       myCollector.Parameters.dt,...
@@ -146,7 +151,7 @@ for ldF = 1:nFiles
            figure()
            myAxesHdl(k) = axes(); 
            hold on
-           legend()
+           legend('Location','Best')
         end
     end
     

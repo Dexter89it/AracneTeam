@@ -9,8 +9,8 @@
 % Authors:      Cirelli Renato, Ventre Francesco, Salvatore Bella,
 %               Alvaro Romero Calvo, Aloisia Russo.
 % Team:         ARACNE
-% Date:         23/09/2019
-% Revision:     9.3
+% Date:         03/10/2019
+% Revision:     9.4
 % ---------------------------- ChangeLog ----------------------------------
 %
 % 31/05/2019 - First Version
@@ -31,6 +31,8 @@
 % 21/09/2019 - Integration with Alvaro's code, saved data from second study
 % 23/09/2019 - Corrected a bug that was affecting the impact location
 %              setting in COMSOL.
+% 03/10/2019 - Modified in order to use a plate element, the code is now
+%              paramentrized according to FEM model.
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
@@ -69,10 +71,8 @@ fprintf('\n');
 title = 'Dataset Generator';
 dims = [1 45];
 prompt = {'User Name',...
-          'Enter the dimension of the dataset (Integer):',...
-          'Enter the impact location limits on x [m]:',...
-          'Enter the impact location limits on y [m]:'};
-definput = {'Insert here your name','20','[0.01,0.99]','[0.01,0.99]'};
+          'Enter the dimension of the dataset (Integer):'};
+definput = {'Insert here your name','20'};
 userAnswer = inputdlg(prompt,title,dims,definput);
 
 % End the script if no choice is made
@@ -116,15 +116,10 @@ end
 % Answer Map
 userName = userAnswer{1};
 setDim = str2double(userAnswer{2});
-posLimits.x = str2num(userAnswer{3});
-posLimits.y = str2num(userAnswer{4});
-
 
 % Simulation info
 mySetUp.userName = userName;
 mySetUp.setDim = setDim;
-mySetUp.posLimits = posLimits;
-mySetUp.dataToSave = dataToSave;
 
 % Create a folder where to store results with the name equal to date
 resFolder = date;
@@ -192,11 +187,6 @@ for k = 1 : setDim
     % Info to store
     myCollector.ID = k; 
     
-    % Generate a random position within the given intervals
-    posVal = [posLimits.x(1);posLimits.y(1)] + ...
-             [posLimits.x(2)-posLimits.x(1),0;...
-              0,posLimits.y(2)-posLimits.y(1)]*rand(2,1);
-
     % Parameters to store
     myCollector.Parameters.dt = dt(k);
     myCollector.Parameters.P = P(k);
@@ -205,18 +195,30 @@ for k = 1 : setDim
     myCollector.Parameters.v = v(k);
     myCollector.Parameters.crospen = crosspen(k); 
     myCollector.Parameters.G = G(k);
-    myCollector.Parameters.impact = posVal;
           
     % Update the model with the current parameters
     % Peak of the force
     model.param.set('P_imp',[num2str(P(k)),'[Pa]']);
     % Square impulse time
-    model.param.set('dt_imp',[num2str(dt(k)),'[s]']);
+    model.param.set('t_imp',[num2str(dt(k)),'[s]']);
+    % Impact diameter
+    model.param.set('d_imp',[num2str(d(k)),'[m]']);
+    
+    % Generate a random position within the given intervals 
+    % done here since depends on previously assigned parameters (t_imp)
+    L = mphglobal(model,'L');
+    L = L(1);
+    posLimits.x = [L/10; L-L/10];
+    posLimits.y = [L/10; L-L/10];
+    posVal = [posLimits.x(1);posLimits.y(1)] + ...
+             [posLimits.x(2)-posLimits.x(1),0;...
+              0,posLimits.y(2)-posLimits.y(1)]*rand(2,1);  
+    myCollector.Parameters.impact = posVal;
+    myCollector.Parameters.L = L;
+    
     % Location of the applied force
     model.param.set('x_imp',[num2str(posVal(1)),'[m]']);
     model.param.set('y_imp',[num2str(posVal(2)),'[m]']);
-    % Impact diameter
-    model.param.set('d_imp',[num2str(d(k)),'[m]']);
     
     % Update Geometry
     model.geom('geom1').runAll();
@@ -225,17 +227,16 @@ for k = 1 : setDim
     model.mesh('mesh1').run();
     fprintf('Mesh has been updated\n');
     
+    % Running simulation
     fprintf('Simulation has started\n');
     tic
     model.study('std1').run
-    fprintf('Study 1 is complete\n');
-    model.study('std2').run
-    fprintf('Study 2 is complete\n');
+    fprintf('Study is complete\n');
     myCollector.runTime = toc;
     fprintf('Simulation has ended in %.1f s \n\n',myCollector.runTime);
     
     % Select the dataset to be used during the data extraction from COMSOL
-    selDataset = 'dset2';
+    selDataset = 'dset1';
     
     % Data Extraction
     switch dataToSave
@@ -257,50 +258,47 @@ for k = 1 : setDim
             
             temp = mpheval(model,'y','edim','boundary','dataset',selDataset);
             myCollector.mesh.y = temp.d1';
-            
-            temp = mpheval(model,'z','edim','boundary','dataset',selDataset);
-            myCollector.mesh.z = temp.d1';
-            
+                        
             % Acceleration of each node (node_id,value)
             fprintf(' -- Saving acceleration data \n');
             
-            temp = mpheval(model,'shell.u_ttX','edim','boundary','dataset',selDataset);
+            temp = mpheval(model,'plate.u_ttX','edim','boundary','dataset',selDataset);
             myCollector.data.acc.x = temp.d1';
             
-            temp = mpheval(model,'shell.u_ttY','edim','boundary','dataset',selDataset);
+            temp = mpheval(model,'plate.u_ttY','edim','boundary','dataset',selDataset);
             myCollector.data.acc.y = temp.d1';
             
-            temp = mpheval(model,'shell.u_ttZ','edim','boundary','dataset',selDataset);
+            temp = mpheval(model,'plate.u_ttZ','edim','boundary','dataset',selDataset);
             myCollector.data.acc.z = temp.d1';
             
             % Velocity of each node (node_id,value)
             fprintf(' -- Saving velocity data \n'); 
             
-            temp = mpheval(model,'shell.u_tX','edim','boundary','dataset',selDataset);
+            temp = mpheval(model,'plate.u_tX','edim','boundary','dataset',selDataset);
             myCollector.data.vel.x = temp.d1';
             
-            temp = mpheval(model,'shell.u_tY','edim','boundary','dataset',selDataset);
+            temp = mpheval(model,'plate.u_tY','edim','boundary','dataset',selDataset);
             myCollector.data.vel.y = temp.d1';
             
-            temp = mpheval(model,'shell.u_tZ','edim','boundary','dataset',selDataset);
+            temp = mpheval(model,'plate.u_tZ','edim','boundary','dataset',selDataset);
             myCollector.data.vel.z = temp.d1';
 
             % Displacement of each node (node_id,value)
             fprintf(' -- Saving displacement data \n');
             
-            temp = mpheval(model,'shell.umx','edim','boundary','dataset',selDataset);
+            temp = mpheval(model,'plate.umx','edim','boundary','dataset',selDataset);
             myCollector.data.disp.x = temp.d1';
             
-            temp = mpheval(model,'shell.umy','edim','boundary','dataset',selDataset);
+            temp = mpheval(model,'plate.umy','edim','boundary','dataset',selDataset);
             myCollector.data.disp.y = temp.d1';
             
-            temp = mpheval(model,'shell.umz','edim','boundary','dataset',selDataset);
+            temp = mpheval(model,'plate.umz','edim','boundary','dataset',selDataset);
             myCollector.data.disp.z = temp.d1';
 
             % Energy Densities of each node (node_id,value) [J/m^3]
             fprintf(' -- Saving energy densities data \n');
             
-            temp = mpheval(model,'shell.Wk','edim','boundary','dataset',selDataset);
+            temp = mpheval(model,'plate.Wk','edim','boundary','dataset',selDataset);
             myCollector.data.Wk = temp.d1';
 
             myCollector.saveTime = toc;
@@ -319,29 +317,28 @@ for k = 1 : setDim
             fprintf(' -- Saving evaluation points coordinates \n'); 
             myCollector.mesh.x = mphevalpoint(model,'x','selection',tempSel,'dataset',selDataset);
             myCollector.mesh.y = mphevalpoint(model,'y','selection',tempSel,'dataset',selDataset);
-            myCollector.mesh.z = mphevalpoint(model,'z','selection',tempSel,'dataset',selDataset);
             
             % Acceleration of each node (node_id,value)
             fprintf(' -- Saving acceleration data \n'); 
-            myCollector.data.acc.x = mphevalpoint(model,'shell.u_ttX','selection',tempSel,'dataset',selDataset);
-            myCollector.data.acc.y = mphevalpoint(model,'shell.u_ttY','selection',tempSel,'dataset',selDataset);
-            myCollector.data.acc.z = mphevalpoint(model,'shell.u_ttZ','selection',tempSel,'dataset',selDataset);
+            myCollector.data.acc.x = mphevalpoint(model,'plate.u_ttX','selection',tempSel,'dataset',selDataset);
+            myCollector.data.acc.y = mphevalpoint(model,'plate.u_ttY','selection',tempSel,'dataset',selDataset);
+            myCollector.data.acc.z = mphevalpoint(model,'plate.u_ttZ','selection',tempSel,'dataset',selDataset);
 
             % Velocity of each node (node_id,value)
             fprintf(' -- Saving velocity data \n'); 
-            myCollector.data.vel.x = mphevalpoint(model,'shell.u_tX','selection',tempSel,'dataset',selDataset);
-            myCollector.data.vel.y = mphevalpoint(model,'shell.u_tY','selection',tempSel,'dataset',selDataset);
-            myCollector.data.vel.z = mphevalpoint(model,'shell.u_tZ','selection',tempSel,'dataset',selDataset);
+            myCollector.data.vel.x = mphevalpoint(model,'plate.u_tX','selection',tempSel,'dataset',selDataset);
+            myCollector.data.vel.y = mphevalpoint(model,'plate.u_tY','selection',tempSel,'dataset',selDataset);
+            myCollector.data.vel.z = mphevalpoint(model,'plate.u_tZ','selection',tempSel,'dataset',selDataset);
 
             % Displacement of each node (node_id,value)
             fprintf(' -- Saving displacement data \n');
-            myCollector.data.disp.x = mphevalpoint(model,'shell.umx','selection',tempSel,'dataset',selDataset);
-            myCollector.data.disp.y = mphevalpoint(model,'shell.umy','selection',tempSel,'dataset',selDataset);
-            myCollector.data.disp.z = mphevalpoint(model,'shell.umz','selection',tempSel,'dataset',selDataset);
+            myCollector.data.disp.x = mphevalpoint(model,'plate.umx','selection',tempSel,'dataset',selDataset);
+            myCollector.data.disp.y = mphevalpoint(model,'plate.umy','selection',tempSel,'dataset',selDataset);
+            myCollector.data.disp.z = mphevalpoint(model,'plate.umz','selection',tempSel,'dataset',selDataset);
 
             % Energy Densities of each node (node_id,value) [J/m^3]
             fprintf(' -- Saving energy densities data \n');
-            myCollector.data.Wk = mphevalpoint(model,'shell.Wk','selection',tempSel,'dataset',selDataset);
+            myCollector.data.Wk = mphevalpoint(model,'plate.Wk','selection',tempSel,'dataset',selDataset);
 
             myCollector.saveTime = toc;
             fprintf('Data has been saved in %.1f s \n',myCollector.saveTime); 

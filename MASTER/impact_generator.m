@@ -31,13 +31,13 @@ function xout = impact_generator(file_path,N)
 % 6. Meteoroids -> Iron
 
     % PARAMETERS
-    % Target properties (Al7075)
-    C2    = 5200;  % m/s (Al 7075)
+    % Target properties (Al7075 - from Comsol case study)
+    C2    = 5187;   % m/s 
     S2    = 1.36;  
-    rho02 = 2810; 
+    rho02 = 2748.5; % kg/m^3
 
     % Plate thickness
-    t     = 0.001; % Thickness of the plate. 
+    t     = 0.001; % m 
 
     % Load data
     flux = importflux(file_path); 
