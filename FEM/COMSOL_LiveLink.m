@@ -147,8 +147,9 @@ T_mean = (173.15 + 373.15)/2;                % K
 T_shadow = 173.15;                           % K
 T_sun = 373.15;                              % K
 
-T = randsample([T_mean; T_shadow; T_sun],setDim); % K
-AL = AL_data(T);
+T = [T_mean; T_shadow; T_sun];               % K
+T = T(round(2*rand(setDim,1))+1);            % K
+AL = AL_data(T);                             % m/s^2; Kg/m^3
 
 % Exclude the penetration check TRUE case
 count = 0;
