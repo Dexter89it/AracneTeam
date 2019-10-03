@@ -215,6 +215,8 @@ for k = 1 : setDim
     model.param.set('d_imp',[num2str(d(k)),'[m]']);
     % Study Temperature
     model.param.set('T_amb',[num2str(T(k)),'[m]']);
+    % Speed of sound in the material
+    model.param.set('c_al',[num2str(AL(1,k)),'[m]']);
     
     % Generate a random position within the given intervals 
     % done here since depends on previously assigned parameters (t_imp)
