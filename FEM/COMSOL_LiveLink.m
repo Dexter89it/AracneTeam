@@ -32,7 +32,8 @@
 % 23/09/2019 - Corrected a bug that was affecting the impact location
 %              setting in COMSOL.
 % 03/10/2019 - Modified in order to use a plate element, the code is now
-%              paramentrized according to FEM model.
+%              paramentrized according to FEM model, implemented random
+%              Temperature variation between hot, cold and mean.
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
@@ -49,7 +50,7 @@ set(0,'DefaultTextFontSize',12);
 set(0,'DefaultAxesFontSize',12);
 
 % Load Library
-addpath(genpath('myFunctions'))
+addpath(genpath('myFunctions'));
 addpath(genpath('MASTER'));
 
 %% COMSOL LiveLink
@@ -141,6 +142,14 @@ mkdir([resFolder,'\',simName]);
 mySetUp.simDate = resFolder;
 mySetUp.simName = simName;
 
+% Consider a study temperature
+T_mean = (173.15 + 373.15)/2;                % K
+T_shadow = 173.15;                           % K
+T_sun = 373.15;                              % K
+
+T = randsample([T_mean; T_shadow; T_sun],setDim); % K
+AL = AL_data(T);
+
 % Exclude the penetration check TRUE case
 count = 0;
 % Preallocation
@@ -152,7 +161,7 @@ while count < setDim
     count = count + 1;
 
     % Data Generation
-    temp = impact_generator('./MASTER/total_flux.txt',1);
+    temp = impact_generator('./MASTER/total_flux.txt',1,AL(:,count));
     
     try
         % Check penetration
@@ -195,6 +204,7 @@ for k = 1 : setDim
     myCollector.Parameters.v = v(k);
     myCollector.Parameters.crospen = crosspen(k); 
     myCollector.Parameters.G = G(k);
+    myCollector.Parameters.T = T(k);
           
     % Update the model with the current parameters
     % Peak of the force
@@ -203,6 +213,8 @@ for k = 1 : setDim
     model.param.set('t_imp',[num2str(dt(k)),'[s]']);
     % Impact diameter
     model.param.set('d_imp',[num2str(d(k)),'[m]']);
+    % Study Temperature
+    model.param.set('T_amb',[num2str(T(k)),'[m]']);
     
     % Generate a random position within the given intervals 
     % done here since depends on previously assigned parameters (t_imp)

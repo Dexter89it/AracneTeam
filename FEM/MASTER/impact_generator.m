@@ -1,4 +1,4 @@
-function xout = impact_generator(file_path,N)
+function xout = impact_generator(file_path,N,AL)
 % Generates N time-force combinations based on the diameter-velocity flux
 % of particles at the ISS orbit.
 %
@@ -32,9 +32,9 @@ function xout = impact_generator(file_path,N)
 
     % PARAMETERS
     % Target properties (Al7075 - from Comsol case study)
-    C2    = 5187;   % m/s 
+    C2    = AL(1);   % m/s 
     S2    = 1.36;  
-    rho02 = 2748.5; % kg/m^3
+    rho02 = AL(2); % kg/m^3
 
     % Plate thickness
     t     = 0.001; % m 
