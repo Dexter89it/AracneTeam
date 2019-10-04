@@ -64,7 +64,7 @@ switch taskSel
         clear filepath1 filename1
               
         % Number of NN to train
-        nnCount = 10;
+        nnCount = 5;
 
         % Number of training session per each NN
         keepTraining = 1;
@@ -73,10 +73,10 @@ switch taskSel
         trPerc = 0.85;
 
         % Test percentage (referred to the training data)
-        valPerc = 0.1;
+        valPerc = 0.10;
 
         % Maximum fails
-        maxFails = 50;
+        maxFails = 25;
 
         % Maximum Epochs
         maxEpochs = 500;
@@ -163,8 +163,9 @@ switch taskSel
             netColl{k} = net;
             errorColl{k} = e;
 
-            % Check if the NN is the best one according to a pre-defined criterira
-            pMerit = abs(max(max(e)));
+            % Compute the maximum committed error over the test dataset
+            pMerit = max(abs(mean(net(testData.inputX) - testData.outputY,2)));
+            
             if pMeritMem > pMerit
 
                 % Update the parameter of merit

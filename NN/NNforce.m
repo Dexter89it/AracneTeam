@@ -75,7 +75,7 @@ switch taskSel
         valPerc = 0.1;
 
         % Maximum fails
-        maxFails = 200;
+        maxFails = 15;
 
         % Maximum Epochs
         maxEpochs = 500;
@@ -127,25 +127,23 @@ switch taskSel
 
         for k = 1:nnCount
             tic
-            %Set the training function
-            % Levenberg-Marquardt
-              trainFcn = 'trainlm';
 
             % Neural network definition
             net = feedforwardnet([25 5],trainFcn);
+            %net = cascadeforwardnet([25],trainFcn);
 
             % Set the performance function
             % Mean squared error
-            net.performFcn = 'mse';
+            net.performFcn = performFcn;
 
             % Training, validation and test percentage of the total training set
-            net.divideParam.trainRatio = 0.95;
-            net.divideParam.valRatio = 0.05; 
-            net.divideParam.testRatio  = 1-net.divideParam.trainRatio-net.divideParam.valRatio;
+            net.divideParam.trainRatio = trPerc;
+            net.divideParam.valRatio = valPerc; 
+            net.divideParam.testRatio  = 1-trPerc-valPerc;
 
             % Maximum training fail limit
-            net.trainParam.max_fail = 200;
-            net.trainParam.epochs = 10000;
+            net.trainParam.max_fail = maxFails;
+            net.trainParam.epochs = maxEpochs;
 
             fprintf('NN : %d\n',k);
             netCollInt = {};
