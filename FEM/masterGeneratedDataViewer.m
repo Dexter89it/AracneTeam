@@ -8,9 +8,19 @@ set(0,'DefaultFigureWindowStyle','docked');
 set(0,'DefaultTextFontSize',12);
 set(0,'DefaultAxesFontSize',12);
 
+addpath(genpath('MASTER'));
+
 %%
 % Generate the impact data
-[dt,P,d,up2,v,G] = impact_generator('./total_flux.txt',100);
+xout = impact_generator('MASTER/total_flux.txt',100,AL_data((273.15+20).*ones(100,1)));
+
+dt = xout(:,1);
+P = xout(:,2);
+d = xout(:,3);
+up2 = xout(:,4);
+v = xout(:,5);
+crosspen = xout(:,6);
+G = xout(:,7);
 
 figure(1);
 subplot(5,1,1)
