@@ -223,15 +223,15 @@ for k = 1 : setDim
     
     % Generate a random position within the given intervals 
     % done here since depends on previously assigned parameters (t_imp)
-    L = mphglobal(model,'L');
-    L = L(1);
-    posLimits.x = [L/10; L-L/10];
-    posLimits.y = [L/10; L-L/10];
+    L_eval = mphevaluate(model, 'L');
+    L_eval = L_eval(1);
+    posLimits.x = [L_eval/10; L_eval-L_eval/10];
+    posLimits.y = [L_eval/10; L_eval-L_eval/10];
     posVal = [posLimits.x(1);posLimits.y(1)] + ...
              [posLimits.x(2)-posLimits.x(1),0;...
               0,posLimits.y(2)-posLimits.y(1)]*rand(2,1);  
     myCollector.Parameters.impact = posVal;
-    myCollector.Parameters.L = L;
+    myCollector.Parameters.L = L_eval;
     
     % Location of the applied force
     model.param.set('x_imp',[num2str(posVal(1)),'[m]']);
