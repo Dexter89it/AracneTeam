@@ -10,7 +10,7 @@
 %               Alvaro Romero Calvo, Aloisia Russo.
 % Team:         ARACNE
 % Date:         03/10/2019
-% Revision:     9.4
+% Revision:     9.5
 % ---------------------------- ChangeLog ----------------------------------
 %
 % 31/05/2019 - First Version
@@ -34,6 +34,9 @@
 % 03/10/2019 - Modified in order to use a plate element, the code is now
 %              paramentrized according to FEM model, implemented random
 %              Temperature variation between hot, cold and mean.
+% 05/10/2019 - The nama of the .mat file is now starting with the user name
+%              to make it more identificable, each file now contains the
+%              counter value at the instant of generation
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
@@ -121,6 +124,7 @@ setDim = str2double(userAnswer{2});
 % Simulation info
 mySetUp.userName = userName;
 mySetUp.setDim = setDim;
+mySetUp.setCounter = 0;
 
 % Create a folder where to store results with the name equal to date
 resFolder = date;
@@ -365,7 +369,11 @@ for k = 1 : setDim
     fprintf('Simulation %d of %d completed.\n\n\n',k,setDim);
     
     % Save the results
-    save([resFolder,'\',simName,'\',simName,'_',num2str(k),'.mat'],'myCollector','mySetUp');
+    % Clean all spaces
+    userName(userName == ' ') = [];
+    % Increment the set counter
+    mySetUp.setCounter = mySetUp.setCounter + 1;
+    save([resFolder,'\',simName,'\',userName,'_',simName,'_',num2str(k),'.mat'],'myCollector','mySetUp');
     
     % Memorize the total run time
     shootTime(k) = myCollector.runTime + myCollector.saveTime;

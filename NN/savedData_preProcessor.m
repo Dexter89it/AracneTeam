@@ -54,8 +54,8 @@ collDim = length(filesColl);
 % Sensor ID to be consider (from 1 to 16)
 sensSelIdx =1:16;
 
-% Sampling frequency of the acquisition system in Hz
-sFreq = 10000; %Hz
+% Data point amplifier
+dataPointAmpl = 2;
 
 % Show data extraction plot during the pre-processing
 showPlots = false;
@@ -66,7 +66,7 @@ showPlots = false;
 sensCount  = length(sensSelIdx);
 
 if sensCount>size(filesColl(1).myCollector.data.acc.z,1)
-   error('Maximum number of sensor is %d',size(filesColl(1).myCollector.data.disp.z,1)); 
+   error('Maximum number of sensor is %d',size(filesColl(1).myCollector.data.acc.z,1)); 
 end
 
 % Preallocation
@@ -78,7 +78,7 @@ sensDist = zeros(sensCount,collDim);
 impF = zeros(1,collDim);
 impPosX = zeros(1,collDim);
 impPosY = zeros(1,collDim);
-myChoice = -1;
+chosenInterp = -1;
 
 % Figure set-up
 if showPlots
@@ -96,44 +96,55 @@ for j = 1:collDim
     simTime = filesColl(j).myCollector.timeEval;
     % Simulation data to extract
     simData = filesColl(j).myCollector.data.disp.z(sensSelIdx,:);
+    % Simulation length
+    simL = filesColl(j).myCollector.Parameters.L;
     
     % Ask the first time only
-    if myChoice == -1
-        myList = {'Interpolate the data','Raw Data from COMSOL'};
-        [myChoice,tf] = listdlg('ListString',myList,'SelectionMode','single');
-    end
-    if ~tf
-        error('Please select something.\n')
-    else
-        if myChoice == 1
-            % Interp data along the rows and sample the signals at a certain
-            % frequency
-
-            % Acquisition time
-            sTime = 1/sFreq;
-            % Sampled time vector
-            tempTime = simTime(1):sTime:simTime(end);
-
-            % Preallocation
-            dimRes = [sensCount,length(tempTime)];
-            memData = zeros(dimRes);
-
-            % Iterate the interpolation over the rows
-            for rr = 1 : sensCount
-                memData_fcn = griddedInterpolant(simTime,simData(rr,:),'spline');
-
-                memData(rr,:) = memData_fcn(tempTime);
-            end
-
-            % Redefinition of the extracted data as the sampled data
-            simTime = tempTime;
-            simData = memData;
+    if chosenInterp == -1
+        myList = {'Interpolate --> SPLINE','RAW Data from COMSOL'};
+        [chosenInterp,tf] = listdlg('ListString',myList,'SelectionMode','single');
+        if ~tf
+            error('Please select an interpolation method.\n')
+        end
+        
+        % Data Normalization dialog
+        [chosenNorm,tf] = listdlg('ListString',...
+                                 {'Normalize data -> sensor max. response',...
+                                  'RAW data from COMSOL'},...
+                                  'SelectionMode','single');
+        if ~tf
+            error('Please select normalization method.\n')
         end
     end
     
-    % Normalization of the data in respect the sensr maximum response
-    for sensSel = 1:sensCount
-        simData(sensSel,:) = simData(sensSel,:)./max(abs(simData(sensSel,:)));
+    % Perform the interpolation, if requested
+    if chosenInterp == 1
+        
+        % Increased data point vector
+        tempTime = linspace(simTime(1),simTime(end),length(simTime)*dataPointAmpl);
+
+        % Preallocation
+        dimRes = [sensCount,length(tempTime)];
+        memData = zeros(dimRes);
+
+        % Iterate the interpolation over the rows
+        for rr = 1 : sensCount
+            memData_fcn = griddedInterpolant(simTime,simData(rr,:),'spline');
+
+            memData(rr,:) = memData_fcn(tempTime);
+        end
+
+        % Redefinition of the extracted data
+        simTime = tempTime;
+        simData = memData;
+    end
+    
+    % Perform the normalization if requested
+    if chosenNorm == 1
+        % Normalization of the data in respect the sensr maximum response
+        for sensSel = 1:sensCount
+            simData(sensSel,:) = simData(sensSel,:)./max(abs(simData(sensSel,:)));
+        end
     end
     
     % Show the data if requested
@@ -201,15 +212,15 @@ for j = 1:collDim
         end
         
 % ---- Extraction algorithm #3
-% -- ...
+% --
 % ---- Extraction algorithm #4
 % -- ...
 % ---- Extraction algorithm #5
 % -- ...
         
         % Extract the position of the sensor
-        sensPosX(k,j) = filesColl(j).myCollector.mesh.x(k,1);
-        sensPosY(k,j) = filesColl(j).myCollector.mesh.y(k,1);
+        sensPosX(k,j) = filesColl(j).myCollector.mesh.x(sensSelIdx(k),1)./simL;
+        sensPosY(k,j) = filesColl(j).myCollector.mesh.y(sensSelIdx(k),1)./simL;
         
         sensDist(k,j) = norm([sensPosX(k,j);sensPosY(k,j)]);
         
@@ -229,56 +240,90 @@ for j = 1:collDim
     impF(j) = pi*impP*(impd/2)^2;
 
     % Extract the impact location
-    impPosX(j) = filesColl(j).myCollector.Parameters.impact(1);
-    impPosY(j) = filesColl(j).myCollector.Parameters.impact(2);
+    impPosX(j) = filesColl(j).myCollector.Parameters.impact(1)./simL;
+    impPosY(j) = filesColl(j).myCollector.Parameters.impact(2)./simL;
     
 end
 
 fprintf('- - -\nData extraction completed :) \n\n')
 
-% Show Impact Location
+% Show Impact Location referring the impact to the plate center
 figure()
 hold on
+maxL = 0;
 for j = 1:collDim
-    plot(impPosX(j),impPosY(j),'r.','MarkerSize',30*impF(j)./max(impF))
-    plot(sensPosX(:,j),sensPosY(:,j),'gO','MarkerFaceColor',[0.4660 0.6740 0.1880])
+    
+    plot(impPosX(j) - 1/2,impPosY(j) - 1/2,'r.','MarkerSize',30*impF(j)./max(impF))
+    plot(sensPosX(:,j) -1/2,sensPosY(:,j) -1/2,'gO','MarkerFaceColor',[0.4660 0.6740 0.1880])
+    
 end
 
 %% Definition of input and output vector for the training sessions
 
-% Build the NN Output for force estimation
-inputYp = [impPosX;
-           impPosY];
+% ---- Extraction algorithm #1
 
-% Build the NN Input Vector for force estimation
-inputXp = [abs(charVal_r-charVal_l);
-           charTime_r-charTime_l];
+% % % Input vector for position estimation
+% % inputXp = charVal;
+% % % Input vector for force estimation
+% % inputXf = charVal;
+% % % Output vector for position estimation
+% % outputYp = [impPosX;
+% %             impPosY];
+% % % Output vector for force estimation
+% % outputYf = impF./1e5; %[bar]
 
-% Build the NN Output for force estimation
-inputYf = impF./1e5; %[bar]
+% ---- Extraction algorithm #2
 
-% Build the NN Input Vector for force estimation
-inputXf = [abs(charVal_r-charVal_l);
-           charTime_r-charTime_l];
+% Input vector for position estimation
+inputXp = [charVal_l;
+           charVal_r;
+           charTime_l;
+           charTime_r];
+% Input vector for force estimation
+inputXf = [charVal_l;
+           charVal_r;
+           charTime_l;
+           charTime_r];
+% Output vector for position estimation
+outputYp = [impPosX;
+            impPosY];
+% Output vector for force estimation
+outputYf = impF./1e5; %[bar]
+
+% ---- Extraction algorithm #3
+
+% ---- Extraction algorithm #4
+
+% ---- Extraction algorithm #5
+% % 
+% % %% Input Data Normalization
+% % inputXp = mapminmax(inputXp')';
+% % inputXf = mapminmax(inputXf')';
+
+%%
+
+% % Ass some noise
+% inputXp = [inputXp,awgn(inputXp,40)];
+% outputYp =[outputYp,outputYp];
 
 %%
 % Pre-processing info
 preProcInfo.origin = filename1;
 preProcInfo.sensIDs = sensSelIdx';
 preProcInfo.sensCount = sensCount;
-preProcInfo.interp = myChoice;
-preProcInfo.sFreq = sFreq;
+preProcInfo.interp = chosenInterp;
+preProcInfo.dataPointAmpl = dataPointAmpl;
     
 % Save the results for postion
 inputX = inputXp;
-outputY = inputYp;
+outputY = outputYp;
 tempStr = split(filename1,'.');
 tmepStr = [filepath1,tempStr{1},'_preProcessed_NNpos.',tempStr{2}];
 save(tmepStr,'preProcInfo','inputX','outputY');
 
 % Save the results for force
 inputX = inputXf;
-outputY = inputYf;
+outputY = outputYf;
 tempStr = split(filename1,'.');
 tmepStr = [filepath1,tempStr{1},'_preProcessed_NNfor.',tempStr{2}];
 save(tmepStr,'preProcInfo','inputX','outputY');

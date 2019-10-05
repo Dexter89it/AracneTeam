@@ -64,7 +64,7 @@ switch taskSel
         clear filepath1 filename1
               
         % Number of NN to train
-        nnCount = 5;
+        nnCount = 10;
 
         % Number of training session per each NN
         keepTraining = 1;
@@ -76,7 +76,7 @@ switch taskSel
         valPerc = 0.10;
 
         % Maximum fails
-        maxFails = 25;
+        maxFails = 50;
 
         % Maximum Epochs
         maxEpochs = 500;

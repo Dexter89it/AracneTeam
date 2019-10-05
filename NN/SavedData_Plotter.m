@@ -15,8 +15,8 @@
 % Authors:      Cirelli Renato, Ventre Francesco, Salvatore Bella,
 %               Alvaro Romero Calvo, Aloisia Russo.
 % Team:         ARACNE
-% Date:         03/10/2019
-% Revision:     10.1
+% Date:         05/10/2019
+% Revision:     11
 % ---------------------------- ChangeLog ----------------------------------
 % 31/05/2019 - First Version
 % 15/08/2019 - Fixed a bug where the first element of the collected data
@@ -30,6 +30,7 @@
 %              visualize and about which sensor
 % 03/10/2019 - Sensorial Network plot adapted for each simulation according
 %              to L
+% 05/10/2018 - The data normalization is now an option
 % -------------------------------------------------------------------------
 % LICENSED UNDER Creative Commons Attribution-ShareAlike 4.0 International
 % License. You should have received a copy of the license along with this
@@ -113,11 +114,11 @@ for ldF = 1:nFiles
                       myCollector.Parameters.d);
     text(myAxesHdl_grid,impLoc(1),impLoc(2),myLabel);
     
-    
+    % Only for the first loaded file (first loop iterarion)
     if ldF == 1
+        
         myListFields = fieldnames(myCollector.data);
         [chosenFields,tf] = listdlg('ListString',myListFields);
-
         if ~tf
             error('Please select a field to plot.\n')
         end
@@ -135,11 +136,21 @@ for ldF = 1:nFiles
         end
         
         % Sensor selection dialog
-        [chosenNodes,~] = listdlg('ListString',myListIdx,'SelectionMode',selMode);
-
+        [chosenNodes,tf] = listdlg('ListString',myListIdx,...
+                                  'SelectionMode',selMode);
         if ~tf
             error('Please select a node to plot.\n')
         end
+        
+        % Data Normalization dialog
+        [chosenNorm,tf] = listdlg('ListString',...
+                                 {'Normalize data -> sensor max. response',...
+                                  'RAW data from COMSOL'},...
+                                  'SelectionMode','single');
+        if ~tf
+            error('Please select normalization method.\n')
+        end
+        
     end
 
     % Nuber of chosen fields
@@ -182,9 +193,13 @@ for ldF = 1:nFiles
                 dispNameStr = sprintf('File ID: %d',ldF);
             end
             
-            % Data Normalization upon the maximum of the response
-            tempField(j,:) = tempField(j,:)./max(abs(tempField(j,:)));
-            plot(selAxes,myCollector.timeEval',tempField(j,:)','MarkerFaceColor',plotColor(ldF,:),'DisplayName',dispNameStr);
+            if chosenNorm == 1
+                % Data Normalization upon the maximum of the response
+                tempField(j,:) = tempField(j,:)./max(abs(tempField(j,:)));
+            end
+            
+            plot(selAxes,myCollector.timeEval',tempField(j,:)',...
+                 'MarkerFaceColor',plotColor(ldF,:),'DisplayName',dispNameStr);
         end
         
     else
@@ -201,15 +216,15 @@ for ldF = 1:nFiles
             % Extrac the data
             tempData = tempField.(nameFileds{h});
             
-            % Find the minimum of the maximum of the overall respons
-            minOfTheMax = min(max(abs(tempData),[],2));
+%             % Find the minimum of the maximum of the overall respons
+%             minOfTheMax = min(max(abs(tempData),[],2));
             
             for j = chosenNodes
-                % Data Normalization upon the maximum of the response
-                tempData(j,:) = tempData(j,:)./max(abs(tempData(j,:)));
-%                 % Data normalization upon the minimum of the maximum of all
-%                 % the responses
-%                 tempData(j,:) = tempData(j,:)./minOfTheMax;
+                
+                if chosenNorm == 1
+                    % Data Normalization upon the maximum of the response
+                    tempData(j,:) = tempData(j,:)./max(abs(tempData(j,:)));
+                end
                 
                 if nFiles == 1
                     dispNameStr = sprintf('S %d',j);
@@ -218,7 +233,8 @@ for ldF = 1:nFiles
                 end
                 
                 % Plot the data
-                plot(selAxes,myCollector.timeEval',tempData(j,:)','MarkerFaceColor',plotColor(ldF,:),'DisplayName',dispNameStr);
+                plot(selAxes,myCollector.timeEval',tempData(j,:)',...
+                     'MarkerFaceColor',plotColor(ldF,:),'DisplayName',dispNameStr);
                 ylabel(selAxes,nameFileds{h});
                 xlabel(selAxes,'$time \; [s]$')
             end
